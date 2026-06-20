@@ -3,7 +3,6 @@
 
 @source '../views';
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../vendor/livewire/flux-pro/stubs/**/*.blade.php';
 @source '../../vendor/livewire/flux/stubs/**/*.blade.php';
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -26,6 +25,10 @@
     --color-accent: var(--color-neutral-800);
     --color-accent-content: var(--color-neutral-800);
     --color-accent-foreground: var(--color-white);
+
+    --color-income: oklch(0.723 0.219 149.579);
+    --color-expense: oklch(0.577 0.245 27.325);
+    --color-transfer: oklch(0.623 0.214 259.815);
 }
 
 @layer theme {
