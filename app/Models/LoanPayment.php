@@ -28,6 +28,7 @@ class LoanPayment extends Model
         ];
     }
 
+    /** @return BelongsTo<Loan, $this> */
     public function loan(): BelongsTo
     {
         return $this->belongsTo(Loan::class);

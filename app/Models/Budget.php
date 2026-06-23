@@ -27,11 +27,13 @@ class Budget extends Model
         ];
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /** @return BelongsTo<Category, $this> */
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
@@ -54,7 +56,7 @@ class Budget extends Model
     }
 
     /**
-     * @return Attribute<int, never>
+     * @return Attribute<int<0, 100>, never>
      */
     protected function progressPercent(): Attribute
     {

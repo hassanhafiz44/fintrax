@@ -14,7 +14,7 @@ class LoanPaymentObserver
         $loan = $loanPayment->loan;
         $loan->decrement('remaining', $loanPayment->amount);
 
-        if ($loan->fresh()->remaining <= 0) {
+        if ($loan->fresh()?->remaining <= 0) {
             $loan->update(['status' => 'settled']);
         }
     }
