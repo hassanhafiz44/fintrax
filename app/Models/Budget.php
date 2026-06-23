@@ -56,7 +56,7 @@ class Budget extends Model
     }
 
     /**
-     * @return Attribute<int<0, 100>, never>
+     * @return Attribute<int<min, 100>, never>
      */
     protected function progressPercent(): Attribute
     {
