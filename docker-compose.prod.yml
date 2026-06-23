@@ -1,0 +1,20 @@
+services:
+  app:
+    image: ghcr.io/hassanhafiz44/fintrax-app:latest
+    env_file: .env
+    volumes:
+      - fintrax-db:/var/www/html/database
+      - fintrax-storage:/var/www/html/storage
+    restart: unless-stopped
+
+  web:
+    image: ghcr.io/hassanhafiz44/fintrax-web:latest
+    ports:
+      - "127.0.0.1:8088:80"
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  fintrax-db:
+  fintrax-storage:

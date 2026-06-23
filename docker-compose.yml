@@ -1,0 +1,24 @@
+services:
+  app:
+    build:
+      context: .
+      target: app
+    env_file: .env
+    volumes:
+      - fintrax-db:/var/www/html/database
+      - fintrax-storage:/var/www/html/storage
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      target: web
+    ports:
+      - "127.0.0.1:8088:80"
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  fintrax-db:
+  fintrax-storage:
