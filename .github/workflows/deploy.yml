@@ -7,7 +7,10 @@ on:
 
 permissions:
   contents: read
-  packages: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
   REGISTRY: ghcr.io
@@ -16,9 +19,12 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     outputs:
-      app_tag: ${{ steps.meta_app.outputs.version }}
-      web_tag: ${{ steps.meta_web.outputs.version }}
+      app_digest: ${{ steps.build_app.outputs.digest }}
+      web_digest: ${{ steps.build_web.outputs.digest }}
     steps:
       - name: Checkout code
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -45,6 +51,7 @@ jobs:
             type=sha,format=short
 
       - name: Build and push app image
+        id: build_app
         uses: docker/build-push-action@67a2d409c0a876cbe6b11854e3e25193efe4e555 # v6
         with:
           context: .
@@ -64,6 +71,7 @@ jobs:
             type=sha,format=short
 
       - name: Build and push web image
+        id: build_web
         uses: docker/build-push-action@67a2d409c0a876cbe6b11854e3e25193efe4e555 # v6
         with:
           context: .
@@ -95,15 +103,21 @@ jobs:
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
+        env:
+          APP_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-app@${{ needs.build.outputs.app_digest }}
+          WEB_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-web@${{ needs.build.outputs.web_digest }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           port: 11222
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: APP_IMAGE,WEB_IMAGE
           script: |
             set -e
             cd /opt/fintrax
             mv docker-compose.prod.yml docker-compose.yml
+            sed -i "s#image: ghcr.io/.*-app:latest#image: ${APP_IMAGE}#" docker-compose.yml
+            sed -i "s#image: ghcr.io/.*-web:latest#image: ${WEB_IMAGE}#" docker-compose.yml
             docker compose pull
             docker compose up -d --remove-orphans
             docker image prune -f
