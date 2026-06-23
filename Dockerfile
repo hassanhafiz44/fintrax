@@ -40,7 +40,7 @@ RUN apk add --no-cache \
         oniguruma-dev \
         libzip-dev \
         $PHPIZE_DEPS \
-    && docker-php-ext-install pdo_sqlite bcmath pcntl zip \
+    && docker-php-ext-install pdo_sqlite pdo_mysql bcmath pcntl zip \
     && apk del .build-deps
 
 WORKDIR /var/www/html
