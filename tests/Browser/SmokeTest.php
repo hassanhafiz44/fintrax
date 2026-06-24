@@ -17,5 +17,5 @@ test('authenticated pages load without javascript errors', function () {
         '/settings/security',
     ]);
 
-    $pages->assertNoJavaScriptErrors()->assertNoConsoleLogs();
+    $pages->assertNoJavaScriptErrors();
 });

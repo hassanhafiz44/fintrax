@@ -18,10 +18,12 @@ class LoanDateExtensionFactory extends Factory
      */
     public function definition(): array
     {
+        $previousDueDate = fake()->dateTimeBetween('-2 months', '-1 day');
+
         return [
             'loan_id' => Loan::factory(),
-            'previous_due_date' => fake()->dateTimeBetween('-2 months', 'now'),
-            'new_due_date' => fake()->dateTimeBetween('now', '+2 months'),
+            'previous_due_date' => $previousDueDate,
+            'new_due_date' => fake()->dateTimeBetween('+1 day', '+2 months'),
             'reason' => fake()->optional()->sentence(),
             'extended_at' => now(),
         ];
