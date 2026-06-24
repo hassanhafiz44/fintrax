@@ -1,6 +1,8 @@
 <?php
 
+use App\Models\LoanDateExtension;
 use Flux\Flux;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -9,6 +11,8 @@ new class extends Component {
 
     public bool $showPaymentModal = false;
 
+    public bool $showExtendModal = false;
+
     public ?int $loanId = null;
 
     public string $contact_name = '';
@@ -16,6 +20,8 @@ new class extends Component {
     public string $direction = 'lent';
 
     public string $amount = '';
+
+    public string $loaned_at = '';
 
     public string $due_date = '';
 
@@ -26,6 +32,12 @@ new class extends Component {
     public string $payment_note = '';
 
     public string $payment_paid_at = '';
+
+    public string $current_due_date = '';
+
+    public string $new_due_date = '';
+
+    public string $extend_reason = '';
 
     #[On('open-loan-form')]
     public function openLoanForm(?int $loanId = null): void
@@ -40,12 +52,14 @@ new class extends Component {
             $this->contact_name = $loan->contact_name;
             $this->direction = $loan->direction;
             $this->amount = (string) $loan->amount;
+            $this->loaned_at = $loan->loaned_at?->format('Y-m-d') ?? '';
             $this->due_date = $loan->due_date?->format('Y-m-d') ?? '';
             $this->note = (string) $loan->note;
         } else {
             $this->contact_name = '';
             $this->direction = 'lent';
             $this->amount = '';
+            $this->loaned_at = now()->format('Y-m-d');
             $this->due_date = '';
             $this->note = '';
         }
@@ -59,6 +73,7 @@ new class extends Component {
             'contact_name' => ['required', 'string', 'max:255'],
             'direction' => ['required', 'in:lent,borrowed'],
             'amount' => ['required', 'numeric', 'min:0.01'],
+            'loaned_at' => ['required', 'date', 'before_or_equal:today'],
             'due_date' => ['nullable', 'date'],
             'note' => ['nullable', 'string', 'max:255'],
         ]);
@@ -71,6 +86,7 @@ new class extends Component {
                 'contact_name' => $validated['contact_name'],
                 'direction' => $validated['direction'],
                 'amount' => $validated['amount'],
+                'loaned_at' => $validated['loaned_at'],
                 'due_date' => $validated['due_date'] ?: null,
                 'note' => $validated['note'],
             ]);
@@ -126,6 +142,52 @@ new class extends Component {
 
         Flux::toast(variant: 'success', text: __('Payment logged.'));
     }
+
+    #[On('open-loan-extend-form')]
+    public function openExtendForm(int $loanId): void
+    {
+        $loan = auth()->user()->loans()->findOrFail($loanId);
+        $this->authorize('update', $loan);
+        abort_if($loan->status !== 'active', 403);
+
+        $this->resetValidation();
+        $this->loanId = $loanId;
+        $this->current_due_date = $loan->due_date?->format('Y-m-d') ?? '';
+        $this->new_due_date = '';
+        $this->extend_reason = '';
+        $this->showExtendModal = true;
+    }
+
+    public function extendDueDate(): void
+    {
+        $loan = auth()->user()->loans()->findOrFail($this->loanId);
+        $this->authorize('update', $loan);
+        abort_if($loan->status !== 'active', 403);
+
+        $validated = $this->validate([
+            'new_due_date' => array_filter([
+                'required',
+                'date',
+                $loan->due_date ? 'after:'.$loan->due_date->format('Y-m-d') : null,
+            ]),
+            'extend_reason' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        DB::transaction(function () use ($loan, $validated): void {
+            $loan->dateExtensions()->create([
+                'previous_due_date' => $loan->due_date,
+                'new_due_date' => $validated['new_due_date'],
+                'reason' => $validated['extend_reason'],
+            ]);
+
+            $loan->update(['due_date' => $validated['new_due_date']]);
+        });
+
+        $this->showExtendModal = false;
+        $this->dispatch('loan-saved');
+
+        Flux::toast(variant: 'success', text: __('Due date extended.'));
+    }
 }; ?>
 
 <div>
@@ -140,6 +202,7 @@ new class extends Component {
 
             <flux:input wire:model="contact_name" :label="__('Contact name')" required />
             <flux:input wire:model="amount" :label="__('Amount')" type="number" step="0.01" min="0" required />
+            <flux:input wire:model="loaned_at" :label="__('Date loaned')" type="date" required />
             <flux:input wire:model="due_date" :label="__('Due date')" type="date" />
             <flux:input wire:model="note" :label="__('Note')" />
 
@@ -165,6 +228,23 @@ new class extends Component {
                     <flux:button variant="outline">{{ __('Cancel') }}</flux:button>
                 </flux:modal.close>
                 <flux:button variant="primary" type="submit">{{ __('Log payment') }}</flux:button>
+            </div>
+        </form>
+    </flux:modal>
+
+    <flux:modal name="loan-extend-modal" wire:model="showExtendModal" class="max-w-lg">
+        <form wire:submit="extendDueDate" class="space-y-6">
+            <flux:heading size="lg">{{ __('Extend due date') }}</flux:heading>
+
+            <flux:input :label="__('Current due date')" :value="$current_due_date ?: __('No due date set')" readonly />
+            <flux:input wire:model="new_due_date" :label="__('New due date')" type="date" required />
+            <flux:input wire:model="extend_reason" :label="__('Reason')" />
+
+            <div class="flex justify-end gap-2">
+                <flux:modal.close>
+                    <flux:button variant="outline">{{ __('Cancel') }}</flux:button>
+                </flux:modal.close>
+                <flux:button variant="primary" type="submit">{{ __('Extend') }}</flux:button>
             </div>
         </form>
     </flux:modal>

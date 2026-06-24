@@ -12,6 +12,8 @@ new #[Title('Loans')] class extends Component {
 
     public int $deletingId = 0;
 
+    public bool $confirmingDelete = false;
+
     /**
      * @return Collection<int, Loan>
      */
@@ -19,7 +21,7 @@ new #[Title('Loans')] class extends Component {
     public function loans(): Collection
     {
         return auth()->user()->loans()
-            ->with('payments')
+            ->with(['payments', 'dateExtensions'])
             ->when($this->statusFilter, fn ($q) => $q->where('status', $this->statusFilter))
             ->orderByRaw('due_date IS NULL')
             ->orderBy('due_date')
@@ -29,6 +31,7 @@ new #[Title('Loans')] class extends Component {
     public function confirmDelete(int $loanId): void
     {
         $this->deletingId = $loanId;
+        $this->confirmingDelete = true;
     }
 
     public function delete(): void
@@ -40,6 +43,7 @@ new #[Title('Loans')] class extends Component {
         $loan->delete();
 
         $this->deletingId = 0;
+        $this->confirmingDelete = false;
     }
 
     #[On('loan-saved')]
@@ -87,10 +91,30 @@ new #[Title('Loans')] class extends Component {
                     </flux:badge>
                 @endif
 
+                @if ($loan->dateExtensions->isNotEmpty())
+                    <div class="space-y-1">
+                        @foreach ($loan->dateExtensions as $extension)
+                            <flux:text class="text-xs" wire:key="extension-{{ $extension->id }}">
+                                {{ $extension->previous_due_date?->format('d M') ?? __('No date') }}
+                                →
+                                {{ $extension->new_due_date->format('d M Y') }}
+                                @if ($extension->reason)
+                                    — "{{ $extension->reason }}"
+                                @else
+                                    ({{ __('no reason given') }})
+                                @endif
+                            </flux:text>
+                        @endforeach
+                    </div>
+                @endif
+
                 <div class="flex gap-2">
                     @if ($loan->status === 'active')
                         <flux:button size="sm" variant="primary" wire:click="$dispatch('open-loan-payment-form', { loanId: {{ $loan->id }} })">
                             {{ __('Log payment') }}
+                        </flux:button>
+                        <flux:button size="sm" variant="ghost" wire:click="$dispatch('open-loan-extend-form', { loanId: {{ $loan->id }} })">
+                            {{ __('Extend') }}
                         </flux:button>
                     @endif
                     <flux:button size="sm" variant="ghost" icon="pencil" wire:click="$dispatch('open-loan-form', { loanId: {{ $loan->id }} })" />
@@ -106,12 +130,12 @@ new #[Title('Loans')] class extends Component {
 
     <livewire:pages::loans.form />
 
-    <flux:modal name="confirm-loan-delete" :show="$deletingId > 0" @close="$set('deletingId', 0)" class="max-w-md">
+    <flux:modal name="confirm-loan-delete" wire:model.self="confirmingDelete" class="max-w-md">
         <div class="space-y-6">
             <flux:heading size="lg">{{ __('Delete loan?') }}</flux:heading>
             <flux:text>{{ __('This will also delete its payment history.') }}</flux:text>
             <div class="flex justify-end gap-2">
-                <flux:button variant="outline" wire:click="$set('deletingId', 0)">{{ __('Cancel') }}</flux:button>
+                <flux:button variant="outline" wire:click="$set('confirmingDelete', false)">{{ __('Cancel') }}</flux:button>
                 <flux:button variant="danger" wire:click="delete">{{ __('Delete') }}</flux:button>
             </div>
         </div>
