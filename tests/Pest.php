@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Foundation\Testing\DatabaseTruncation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -17,6 +18,12 @@ use Tests\TestCase;
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Feature');
+
+// Browser tests run in a separate process via Playwright, which can't see
+// data created inside RefreshDatabase's wrapping transaction.
+pest()->extend(TestCase::class)
+    ->use(DatabaseTruncation::class)
+    ->in('Browser');
 
 /*
 |--------------------------------------------------------------------------

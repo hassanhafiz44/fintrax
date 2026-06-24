@@ -27,6 +27,8 @@ new #[Title('Transactions')] class extends Component {
 
     public int $deletingId = 0;
 
+    public bool $confirmingDelete = false;
+
     public function updated($name): void
     {
         if (in_array($name, ['search', 'type', 'account_id', 'category_id', 'date_from', 'date_to'], true)) {
@@ -67,6 +69,7 @@ new #[Title('Transactions')] class extends Component {
     public function confirmDelete(int $transactionId): void
     {
         $this->deletingId = $transactionId;
+        $this->confirmingDelete = true;
     }
 
     public function delete(): void
@@ -78,6 +81,7 @@ new #[Title('Transactions')] class extends Component {
         $transaction->delete();
 
         $this->deletingId = 0;
+        $this->confirmingDelete = false;
     }
 
     #[On('transaction-saved')]
@@ -183,12 +187,12 @@ new #[Title('Transactions')] class extends Component {
 
     <livewire:pages::transactions.form />
 
-    <flux:modal name="confirm-transaction-delete" :show="$deletingId > 0" @close="$set('deletingId', 0)" class="max-w-md">
+    <flux:modal name="confirm-transaction-delete" wire:model.self="confirmingDelete" class="max-w-md">
         <div class="space-y-6">
             <flux:heading size="lg">{{ __('Delete transaction?') }}</flux:heading>
             <flux:text>{{ __('This will reverse its effect on the account balance.') }}</flux:text>
             <div class="flex justify-end gap-2">
-                <flux:button variant="outline" wire:click="$set('deletingId', 0)">{{ __('Cancel') }}</flux:button>
+                <flux:button variant="outline" wire:click="$set('confirmingDelete', false)">{{ __('Cancel') }}</flux:button>
                 <flux:button variant="danger" wire:click="delete">{{ __('Delete') }}</flux:button>
             </div>
         </div>

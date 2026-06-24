@@ -11,6 +11,7 @@ use Illuminate\Support\Carbon;
 
 /**
  * @property string $status
+ * @property Carbon|null $loaned_at
  * @property Carbon|null $due_date
  * @property string $remaining
  */
@@ -27,6 +28,7 @@ class Loan extends Model
     protected function casts(): array
     {
         return [
+            'loaned_at' => 'date',
             'due_date' => 'date',
             'amount' => 'decimal:2',
             'remaining' => 'decimal:2',
@@ -43,6 +45,12 @@ class Loan extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(LoanPayment::class);
+    }
+
+    /** @return HasMany<LoanDateExtension, $this> */
+    public function dateExtensions(): HasMany
+    {
+        return $this->hasMany(LoanDateExtension::class)->latest('extended_at');
     }
 
     public function isOverdue(): bool

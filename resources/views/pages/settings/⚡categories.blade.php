@@ -20,6 +20,8 @@ new #[Title('Categories')] class extends Component {
 
     public int $deletingId = 0;
 
+    public bool $confirmingDelete = false;
+
     /**
      * @return Collection<int, Category>
      */
@@ -78,6 +80,7 @@ new #[Title('Categories')] class extends Component {
     public function confirmDelete(int $categoryId): void
     {
         $this->deletingId = $categoryId;
+        $this->confirmingDelete = true;
     }
 
     public function delete(): void
@@ -89,6 +92,7 @@ new #[Title('Categories')] class extends Component {
         $category->delete();
 
         $this->deletingId = 0;
+        $this->confirmingDelete = false;
         unset($this->categories);
     }
 }; ?>
@@ -152,11 +156,11 @@ new #[Title('Categories')] class extends Component {
         </form>
     </flux:modal>
 
-    <flux:modal name="confirm-category-delete" :show="$deletingId > 0" @close="$set('deletingId', 0)" class="max-w-md">
+    <flux:modal name="confirm-category-delete" wire:model.self="confirmingDelete" class="max-w-md">
         <div class="space-y-6">
             <flux:heading size="lg">{{ __('Delete category?') }}</flux:heading>
             <div class="flex justify-end gap-2">
-                <flux:button variant="outline" wire:click="$set('deletingId', 0)">{{ __('Cancel') }}</flux:button>
+                <flux:button variant="outline" wire:click="$set('confirmingDelete', false)">{{ __('Cancel') }}</flux:button>
                 <flux:button variant="danger" wire:click="delete">{{ __('Delete') }}</flux:button>
             </div>
         </div>

@@ -10,6 +10,8 @@ use Livewire\Component;
 new #[Title('Budgets')] class extends Component {
     public int $deletingId = 0;
 
+    public bool $confirmingDelete = false;
+
     /**
      * @return Collection<int, Budget>
      */
@@ -25,6 +27,7 @@ new #[Title('Budgets')] class extends Component {
     public function confirmDelete(int $budgetId): void
     {
         $this->deletingId = $budgetId;
+        $this->confirmingDelete = true;
     }
 
     public function delete(): void
@@ -36,6 +39,7 @@ new #[Title('Budgets')] class extends Component {
         $budget->delete();
 
         $this->deletingId = 0;
+        $this->confirmingDelete = false;
     }
 
     #[On('budget-saved')]
@@ -97,11 +101,11 @@ new #[Title('Budgets')] class extends Component {
 
     <livewire:pages::budgets.form />
 
-    <flux:modal name="confirm-budget-delete" :show="$deletingId > 0" @close="$set('deletingId', 0)" class="max-w-md">
+    <flux:modal name="confirm-budget-delete" wire:model.self="confirmingDelete" class="max-w-md">
         <div class="space-y-6">
             <flux:heading size="lg">{{ __('Delete budget?') }}</flux:heading>
             <div class="flex justify-end gap-2">
-                <flux:button variant="outline" wire:click="$set('deletingId', 0)">{{ __('Cancel') }}</flux:button>
+                <flux:button variant="outline" wire:click="$set('confirmingDelete', false)">{{ __('Cancel') }}</flux:button>
                 <flux:button variant="danger" wire:click="delete">{{ __('Delete') }}</flux:button>
             </div>
         </div>
