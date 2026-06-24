@@ -23,6 +23,39 @@ transactions, loans (lent/borrowed), and budgets with progress alerts.
 
 ## Setup
 
+### Option A — Docker (recommended, zero local PHP/Node needed)
+
+```bash
+git clone <repo>
+cd fintrax
+docker compose up -d
+```
+
+That's it. The `app` container installs Composer/npm deps, generates `APP_KEY`,
+runs migrations, and serves Laravel at http://localhost:8000. The `vite`
+container runs the dev server with hot reload at http://localhost:5173.
+
+Your working directory is bind-mounted into both containers — edit any file on
+your host and Laravel/Vite picks it up immediately (PHP changes reload on
+request, Vite HMRs JS/CSS). `vendor/` and `node_modules/` live in named Docker
+volumes so they don't clutter your host or fight with host-installed deps.
+
+Re-run dependency installs automatically on next `docker compose up` if
+`composer.json`/`package.json` change — just `docker compose restart app vite`
+if a new dependency doesn't pick up.
+
+Useful commands:
+
+```bash
+docker compose exec app php artisan tinker
+docker compose exec app php artisan test --compact
+docker compose exec app vendor/bin/pint --dirty --format agent
+docker compose down            # stop
+docker compose down -v         # stop + wipe vendor/node_modules volumes
+```
+
+### Option B — Local PHP/Node
+
 ```bash
 composer install
 cp .env.example .env
