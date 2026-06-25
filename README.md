@@ -16,10 +16,28 @@ transactions, loans (lent/borrowed), and budgets with progress alerts.
 
 - **Accounts** — cash, bank, and mobile wallet balances
 - **Transactions** — income, expense, and transfer entries with category and account filters
-- **Loans** — track money lent or borrowed, log payments, auto-settle when paid off
+- **Loans** — track money lent or borrowed, log payments with optional account deduction/credit, auto-settle when paid off
 - **Budgets** — monthly/weekly/custom budgets with spend progress
 - **Categories** — custom income/expense categories per user
 - **Dashboard** — balance summary, monthly income/expense/net, recent transactions
+
+---
+
+## Demo Account
+
+A demo account is seeded automatically (dev and prod). Log in with:
+
+- **Email:** `demo@example.com`
+- **Password:** `password`
+
+Comes preloaded with 3 accounts, 27 transactions across 3 months, 4 active loans, and 4 budgets.
+The demo account resets daily at midnight — any changes made to it will be wiped.
+
+To reseed manually:
+
+```bash
+docker compose exec app php artisan demo:reset
+```
 
 ---
 
@@ -36,6 +54,8 @@ docker compose up -d
 That's it. The `app` container installs Composer/npm deps, generates `APP_KEY`,
 runs migrations, and serves Laravel at http://localhost:8000. The `vite`
 container runs the dev server with hot reload at http://localhost:5173.
+**Mailpit** (local mail catcher) runs at http://localhost:8025 — all outgoing
+emails (verification, password reset) are captured there instead of being sent.
 
 Your working directory is bind-mounted into both containers — edit any file on
 your host and Laravel/Vite picks it up immediately (PHP changes reload on
@@ -52,6 +72,7 @@ Useful commands:
 docker compose exec app php artisan tinker
 docker compose exec app php artisan test --compact
 docker compose exec app vendor/bin/pint --dirty --format agent
+docker compose exec app php artisan demo:reset   # reseed demo account
 docker compose down            # stop
 docker compose down -v         # stop + wipe vendor/node_modules volumes
 ```
