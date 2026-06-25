@@ -24,6 +24,28 @@ test('status filter narrows results', function () {
         ->assertSee('Settled Sara');
 });
 
+test('list paginates beyond the first page', function () {
+    $user = User::factory()->create();
+    Loan::factory()->for($user)->count(16)->create(['status' => 'active']);
+
+    $component = Livewire::actingAs($user)->test('pages::loans.index');
+
+    expect($component->get('loans')->count())->toBe(15);
+    expect($component->get('loans')->total())->toBe(16);
+});
+
+test('changing the status filter resets to page one', function () {
+    $user = User::factory()->create();
+    Loan::factory()->for($user)->count(16)->create(['status' => 'active']);
+    Loan::factory()->for($user)->create(['status' => 'settled']);
+
+    Livewire::actingAs($user)
+        ->test('pages::loans.index')
+        ->call('gotoPage', 2)
+        ->set('statusFilter', 'settled')
+        ->assertSet('paginators.page', 1);
+});
+
 test('deleting a loan cascades to its payments and date extensions', function () {
     $user = User::factory()->create();
     $loan = Loan::factory()->for($user)->create();

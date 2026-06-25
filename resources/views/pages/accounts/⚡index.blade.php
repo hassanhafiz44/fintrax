@@ -1,24 +1,27 @@
 <?php
 
 use App\Models\Account;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 new #[Title('Accounts')] class extends Component {
+    use WithPagination;
+
     public int $deletingId = 0;
 
     public bool $confirmingDelete = false;
 
     /**
-     * @return Collection<int, Account>
+     * @return LengthAwarePaginator<int, Account>
      */
     #[Computed]
-    public function accounts(): Collection
+    public function accounts(): LengthAwarePaginator
     {
-        return auth()->user()->accounts()->orderByDesc('is_default')->orderBy('name')->get();
+        return auth()->user()->accounts()->orderByDesc('is_default')->orderBy('name')->paginate(15);
     }
 
     public function setDefault(int $accountId): void
@@ -98,6 +101,8 @@ new #[Title('Accounts')] class extends Component {
             </div>
         @endforelse
     </div>
+
+    <flux:pagination :paginator="$this->accounts" />
 
     <livewire:pages::accounts.form />
 

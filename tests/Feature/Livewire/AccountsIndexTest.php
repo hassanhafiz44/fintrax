@@ -22,6 +22,16 @@ test('deleting an account cascades to its transactions', function () {
     expect(Transaction::find($transaction->id))->toBeNull();
 });
 
+test('list paginates beyond the first page', function () {
+    $user = User::factory()->create();
+    Account::factory()->for($user)->count(15)->create();
+
+    $component = Livewire::actingAs($user)->test('pages::accounts.index');
+
+    expect($component->get('accounts')->count())->toBe(15);
+    expect($component->get('accounts')->total())->toBe(16);
+});
+
 test('cannot delete another users account', function () {
     $owner = User::factory()->create();
     $intruder = User::factory()->create();
