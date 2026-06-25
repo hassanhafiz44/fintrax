@@ -21,8 +21,11 @@ pest()->extend(TestCase::class)
 
 // Browser tests run in a separate process via Playwright, which can't see
 // data created inside RefreshDatabase's wrapping transaction.
+// Remove public/hot so @vite() uses the compiled manifest instead of the
+// Vite dev server URL (localhost:5173 is unreachable from inside Docker).
 pest()->extend(TestCase::class)
     ->use(DatabaseTruncation::class)
+    ->beforeAll(fn () => @unlink(__DIR__.'/../public/hot'))
     ->in('Browser');
 
 /*

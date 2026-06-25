@@ -23,6 +23,12 @@ if mkdir "$LOCK" 2>/dev/null; then
         npm install
     fi
 
+    if [ ! -d public/build ] || [ package-lock.json -nt public/build/manifest.json ]; then
+        npm run build
+    fi
+
+    npx playwright install chromium
+
     if ! grep -q '^APP_KEY=base64' .env; then
         php artisan key:generate --force
     fi

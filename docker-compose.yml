@@ -11,6 +11,7 @@ services:
       - .:/var/www/html
       - fintrax-vendor:/var/www/html/vendor
       - fintrax-node-modules:/var/www/html/node_modules
+      - fintrax-playwright-cache:/root/.cache/ms-playwright
     restart: unless-stopped
 
   vite:
@@ -31,3 +32,4 @@ services:
 volumes:
   fintrax-vendor:
   fintrax-node-modules:
+  fintrax-playwright-cache:
