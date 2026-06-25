@@ -31,6 +31,16 @@ test('list renders with spent and progress', function () {
     expect($budget->refresh()->progress_percent)->toBe(85);
 });
 
+test('list paginates beyond the first page', function () {
+    $user = User::factory()->create();
+    Budget::factory()->for($user)->count(16)->create();
+
+    $component = Livewire::actingAs($user)->test('pages::budgets.index');
+
+    expect($component->get('budgets')->count())->toBe(15);
+    expect($component->get('budgets')->total())->toBe(16);
+});
+
 test('deleting a budget removes it', function () {
     $user = User::factory()->create();
     $budget = Budget::factory()->for($user)->create();

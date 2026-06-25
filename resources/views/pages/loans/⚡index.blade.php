@@ -1,13 +1,16 @@
 <?php
 
 use App\Models\Loan;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 new #[Title('Loans')] class extends Component {
+    use WithPagination;
+
     public string $statusFilter = 'active';
 
     public int $deletingId = 0;
@@ -15,17 +18,24 @@ new #[Title('Loans')] class extends Component {
     public bool $confirmingDelete = false;
 
     /**
-     * @return Collection<int, Loan>
+     * @return LengthAwarePaginator<int, Loan>
      */
     #[Computed]
-    public function loans(): Collection
+    public function loans(): LengthAwarePaginator
     {
         return auth()->user()->loans()
             ->with(['payments', 'dateExtensions'])
             ->when($this->statusFilter, fn ($q) => $q->where('status', $this->statusFilter))
             ->orderByRaw('due_date IS NULL')
             ->orderBy('due_date')
-            ->get();
+            ->paginate(15);
+    }
+
+    public function updated($name): void
+    {
+        if ($name === 'statusFilter') {
+            $this->resetPage();
+        }
     }
 
     public function confirmDelete(int $loanId): void
@@ -127,6 +137,8 @@ new #[Title('Loans')] class extends Component {
             </div>
         @endforelse
     </div>
+
+    <flux:pagination :paginator="$this->loans" />
 
     <livewire:pages::loans.form />
 

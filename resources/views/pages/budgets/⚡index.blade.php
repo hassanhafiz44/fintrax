@@ -1,27 +1,30 @@
 <?php
 
 use App\Models\Budget;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 new #[Title('Budgets')] class extends Component {
+    use WithPagination;
+
     public int $deletingId = 0;
 
     public bool $confirmingDelete = false;
 
     /**
-     * @return Collection<int, Budget>
+     * @return LengthAwarePaginator<int, Budget>
      */
     #[Computed]
-    public function budgets(): Collection
+    public function budgets(): LengthAwarePaginator
     {
         return auth()->user()->budgets()
             ->with('category')
             ->orderBy('start_date', 'desc')
-            ->get();
+            ->paginate(15);
     }
 
     public function confirmDelete(int $budgetId): void
@@ -98,6 +101,8 @@ new #[Title('Budgets')] class extends Component {
             </div>
         @endforelse
     </div>
+
+    <flux:pagination :paginator="$this->budgets" />
 
     <livewire:pages::budgets.form />
 
