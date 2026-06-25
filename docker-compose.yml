@@ -27,6 +27,26 @@ services:
       - app
     restart: unless-stopped
 
+  scheduler:
+    build:
+      context: .
+      target: dev
+    command: ["php", "artisan", "schedule:work"]
+    volumes:
+      - .:/var/www/html
+      - fintrax-vendor:/var/www/html/vendor
+      - fintrax-node-modules:/var/www/html/node_modules
+    depends_on:
+      - app
+    restart: unless-stopped
+
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - "127.0.0.1:8025:8025"
+      - "127.0.0.1:1025:1025"
+    restart: unless-stopped
+
   vite:
     build:
       context: .

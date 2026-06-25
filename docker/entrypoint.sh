@@ -18,6 +18,8 @@ php artisan view:clear
 
 php artisan migrate --force --graceful
 
+php artisan db:seed --class=DemoSeeder --force
+
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
