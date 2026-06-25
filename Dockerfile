@@ -91,7 +91,7 @@ RUN apk add --no-cache \
     && apk del .build-deps
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-COPY docker/php.ini /usr/local/etc/php/conf.d/zz-fintrax.ini
+COPY docker/php.dev.ini /usr/local/etc/php/conf.d/zz-fintrax.ini
 COPY docker/entrypoint.dev.sh /usr/local/bin/entrypoint.dev.sh
 RUN chmod +x /usr/local/bin/entrypoint.dev.sh
 
