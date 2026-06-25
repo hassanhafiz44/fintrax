@@ -15,11 +15,11 @@ if mkdir "$LOCK" 2>/dev/null; then
         cp .env.example .env
     fi
 
-    if [ -z "$(ls -A vendor 2>/dev/null)" ]; then
+    if [ -z "$(ls -A vendor 2>/dev/null)" ] || [ composer.lock -nt vendor/autoload.php ]; then
         composer install --no-interaction --prefer-dist --ignore-platform-req=ext-sockets
     fi
 
-    if [ -z "$(ls -A node_modules 2>/dev/null)" ]; then
+    if [ -z "$(ls -A node_modules 2>/dev/null)" ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then
         npm install
     fi
 
