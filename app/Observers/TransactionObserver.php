@@ -15,7 +15,6 @@ class TransactionObserver
             'income' => $transaction->account->increment('balance', $transaction->amount),
             'expense' => $transaction->account->decrement('balance', $transaction->amount),
             'transfer' => $this->applyTransfer($transaction),
-            default => null,
         };
     }
 
@@ -28,7 +27,6 @@ class TransactionObserver
             'income' => $transaction->account->decrement('balance', $transaction->amount),
             'expense' => $transaction->account->increment('balance', $transaction->amount),
             'transfer' => $this->reverseTransfer($transaction),
-            default => null,
         };
     }
 
