@@ -2,23 +2,32 @@ services:
   app:
     build:
       context: .
-      target: app
-    env_file: .env
+      target: dev
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      - VITE_DEV_SERVER_URL=http://localhost:5173
     volumes:
-      - fintrax-db:/var/www/html/database
-      - fintrax-storage:/var/www/html/storage
+      - .:/var/www/html
+      - fintrax-vendor:/var/www/html/vendor
+      - fintrax-node-modules:/var/www/html/node_modules
     restart: unless-stopped
 
-  web:
+  vite:
     build:
       context: .
-      target: web
+      target: dev
+    command: ["npm", "run", "dev", "--", "--host=0.0.0.0"]
     ports:
-      - "127.0.0.1:8088:80"
+      - "127.0.0.1:5173:5173"
+    volumes:
+      - .:/var/www/html
+      - fintrax-vendor:/var/www/html/vendor
+      - fintrax-node-modules:/var/www/html/node_modules
     depends_on:
       - app
     restart: unless-stopped
 
 volumes:
-  fintrax-db:
-  fintrax-storage:
+  fintrax-vendor:
+  fintrax-node-modules:
