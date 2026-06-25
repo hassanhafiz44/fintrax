@@ -9,6 +9,19 @@ services:
       - fintrax-storage:/var/www/html/storage
     restart: unless-stopped
 
+  queue:
+    image: ghcr.io/hassanhafiz44/fintrax-app:latest
+    command: ["php", "artisan", "queue:work", "--sleep=3", "--tries=3", "--max-time=3600"]
+    env_file: .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - fintrax-db:/var/www/html/database
+      - fintrax-storage:/var/www/html/storage
+    depends_on:
+      - app
+    restart: unless-stopped
+
   web:
     image: ghcr.io/hassanhafiz44/fintrax-web:latest
     ports:
