@@ -55,7 +55,7 @@ new #[Title('Transactions')] class extends Component {
     public function transactions(): LengthAwarePaginator
     {
         return auth()->user()->transactions()
-            ->with(['category', 'account'])
+            ->with(['category', 'account', 'toAccount'])
             ->when($this->search, fn ($q) => $q->where('note', 'like', "%{$this->search}%"))
             ->when($this->type, fn ($q) => $q->where('type', $this->type))
             ->when($this->account_id, fn ($q) => $q->where('account_id', $this->account_id))
@@ -145,7 +145,12 @@ new #[Title('Transactions')] class extends Component {
                     <flux:table.cell>
                         {{ $transaction->note ?? $transaction->category?->name ?? __('Transaction') }}
                     </flux:table.cell>
-                    <flux:table.cell>{{ $transaction->account->name }}</flux:table.cell>
+                    <flux:table.cell>
+                        {{ $transaction->account->name }}
+                        @if ($transaction->type === 'transfer' && $transaction->toAccount)
+                            &rarr; {{ $transaction->toAccount->name }}
+                        @endif
+                    </flux:table.cell>
                     <flux:table.cell>{{ $transaction->transacted_at->format('d M Y') }}</flux:table.cell>
                     <flux:table.cell align="end">
                         <flux:badge :color="match ($transaction->type) {

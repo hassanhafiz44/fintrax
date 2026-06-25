@@ -16,6 +16,8 @@ new class extends Component {
 
     public string $account_id = '';
 
+    public string $to_account_id = '';
+
     public string $category_id = '';
 
     public string $note = '';
@@ -36,6 +38,7 @@ new class extends Component {
             $this->type = $transaction->type;
             $this->amount = (string) $transaction->amount;
             $this->account_id = (string) $transaction->account_id;
+            $this->to_account_id = $transaction->to_account_id ? (string) $transaction->to_account_id : '';
             $this->category_id = $transaction->category_id ? (string) $transaction->category_id : '';
             $this->note = (string) $transaction->note;
             $this->transacted_at = $transaction->transacted_at->format('Y-m-d');
@@ -43,6 +46,7 @@ new class extends Component {
             $this->type = 'expense';
             $this->amount = '';
             $this->account_id = '';
+            $this->to_account_id = '';
             $this->category_id = '';
             $this->note = '';
             $this->transacted_at = now()->format('Y-m-d');
@@ -57,6 +61,12 @@ new class extends Component {
             'type' => ['required', 'in:income,expense,transfer'],
             'amount' => ['required', 'numeric', 'min:0.01'],
             'account_id' => ['required', 'exists:accounts,id'],
+            'to_account_id' => [
+                'nullable',
+                'required_if:type,transfer',
+                'exists:accounts,id',
+                'different:account_id',
+            ],
             'category_id' => ['nullable', 'exists:categories,id'],
             'note' => ['nullable', 'string', 'max:255'],
             'transacted_at' => ['required', 'date'],
@@ -64,6 +74,11 @@ new class extends Component {
 
         $account = auth()->user()->accounts()->findOrFail($validated['account_id']);
         $this->authorize('update', $account);
+
+        if (! empty($validated['to_account_id'])) {
+            $toAccount = auth()->user()->accounts()->findOrFail($validated['to_account_id']);
+            $this->authorize('update', $toAccount);
+        }
 
         if ($this->transactionId) {
             $transaction = auth()->user()->transactions()->findOrFail($this->transactionId);
@@ -77,6 +92,7 @@ new class extends Component {
         auth()->user()->transactions()->create([
             ...$validated,
             'category_id' => $validated['category_id'] ?: null,
+            'to_account_id' => $validated['to_account_id'] ?: null,
         ]);
 
         $this->showModal = false;
@@ -121,6 +137,15 @@ new class extends Component {
                 <flux:select.option :value="(string) $account->id">{{ $account->name }}</flux:select.option>
             @endforeach
         </flux:select>
+
+        @if ($type === 'transfer')
+            <flux:select wire:model="to_account_id" :label="__('To account')" required>
+                <flux:select.option value="">{{ __('Select destination account') }}</flux:select.option>
+                @foreach ($this->accounts as $account)
+                    <flux:select.option :value="(string) $account->id">{{ $account->name }}</flux:select.option>
+                @endforeach
+            </flux:select>
+        @endif
 
         @if ($type !== 'transfer')
             <flux:select wire:model="category_id" :label="__('Category')">

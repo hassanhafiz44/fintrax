@@ -23,7 +23,7 @@ class TransactionFactory extends Factory
             'user_id' => User::factory(),
             'account_id' => Account::factory(),
             'category_id' => null,
-            'type' => fake()->randomElement(['income', 'expense', 'transfer']),
+            'type' => fake()->randomElement(['income', 'expense']),
             'amount' => fake()->randomFloat(2, 1, 5000),
             'note' => fake()->optional()->sentence(),
             'transacted_at' => fake()->dateTimeBetween('-3 months', 'now'),

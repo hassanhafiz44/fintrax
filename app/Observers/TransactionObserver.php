@@ -14,6 +14,7 @@ class TransactionObserver
         match ($transaction->type) {
             'income' => $transaction->account->increment('balance', $transaction->amount),
             'expense' => $transaction->account->decrement('balance', $transaction->amount),
+            'transfer' => $this->applyTransfer($transaction),
             default => null,
         };
     }
@@ -26,7 +27,20 @@ class TransactionObserver
         match ($transaction->type) {
             'income' => $transaction->account->decrement('balance', $transaction->amount),
             'expense' => $transaction->account->increment('balance', $transaction->amount),
+            'transfer' => $this->reverseTransfer($transaction),
             default => null,
         };
+    }
+
+    private function applyTransfer(Transaction $transaction): void
+    {
+        $transaction->account->decrement('balance', $transaction->amount);
+        $transaction->toAccount->increment('balance', $transaction->amount);
+    }
+
+    private function reverseTransfer(Transaction $transaction): void
+    {
+        $transaction->account->increment('balance', $transaction->amount);
+        $transaction->toAccount->decrement('balance', $transaction->amount);
     }
 }

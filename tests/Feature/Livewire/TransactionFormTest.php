@@ -64,6 +64,43 @@ test('cannot open another users transaction for editing', function () {
         ->call('open', $transaction->id);
 })->throws(ModelNotFoundException::class);
 
+test('can create a transfer transaction and moves balance between accounts', function () {
+    $user = User::factory()->create();
+    $source = Account::factory()->for($user)->create(['balance' => 100]);
+    $destination = Account::factory()->for($user)->create(['balance' => 20]);
+
+    Livewire::actingAs($user)
+        ->test('pages::transactions.form')
+        ->call('open')
+        ->set('type', 'transfer')
+        ->set('amount', '30')
+        ->set('account_id', (string) $source->id)
+        ->set('to_account_id', (string) $destination->id)
+        ->set('transacted_at', now()->format('Y-m-d'))
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertDispatched('transaction-saved');
+
+    expect((float) $source->refresh()->balance)->toBe(70.0);
+    expect((float) $destination->refresh()->balance)->toBe(50.0);
+});
+
+test('transfer requires a destination account different from the source account', function () {
+    $user = User::factory()->create();
+    $account = Account::factory()->for($user)->create(['balance' => 100]);
+
+    Livewire::actingAs($user)
+        ->test('pages::transactions.form')
+        ->call('open')
+        ->set('type', 'transfer')
+        ->set('amount', '30')
+        ->set('account_id', (string) $account->id)
+        ->set('to_account_id', (string) $account->id)
+        ->set('transacted_at', now()->format('Y-m-d'))
+        ->call('save')
+        ->assertHasErrors(['to_account_id']);
+});
+
 test('amount is required and must be numeric', function () {
     $user = User::factory()->create();
     $account = Account::factory()->for($user)->create();
