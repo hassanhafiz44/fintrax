@@ -14,6 +14,19 @@ services:
       - fintrax-playwright-cache:/root/.cache/ms-playwright
     restart: unless-stopped
 
+  queue:
+    build:
+      context: .
+      target: dev
+    command: ["php", "artisan", "queue:work", "--sleep=3", "--tries=3", "--max-time=3600"]
+    volumes:
+      - .:/var/www/html
+      - fintrax-vendor:/var/www/html/vendor
+      - fintrax-node-modules:/var/www/html/node_modules
+    depends_on:
+      - app
+    restart: unless-stopped
+
   vite:
     build:
       context: .
