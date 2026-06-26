@@ -13,6 +13,8 @@ RUN composer install \
     --prefer-dist \
     --optimize-autoloader \
     --ignore-platform-reqs
+COPY . .
+RUN composer dump-autoload --classmap-authoritative --no-dev --no-scripts
 
 #######################################
 # Stage: assets — build frontend (Vite)
