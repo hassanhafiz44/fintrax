@@ -1,6 +1,7 @@
 <?php
 
 use Flux\Flux;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -80,20 +81,25 @@ new class extends Component {
             $this->authorize('update', $toAccount);
         }
 
-        if ($this->transactionId) {
-            $transaction = auth()->user()->transactions()->findOrFail($this->transactionId);
-            $this->authorize('update', $transaction);
+        // Wrap delete + recreate in a single DB transaction so the insert and the
+        // balance side-effects fired by TransactionObserver commit all-or-nothing.
+        // A mid-sequence failure must never leave account balances drifted.
+        DB::transaction(function () use ($validated): void {
+            if ($this->transactionId) {
+                $transaction = auth()->user()->transactions()->findOrFail($this->transactionId);
+                $this->authorize('update', $transaction);
 
-            // Reverse the old balance effect, then let the create() below re-apply via observer.
-            // Simplest correct approach: delete + recreate so TransactionObserver stays the single source of truth.
-            $transaction->delete();
-        }
+                // Reverse the old balance effect, then let the create() below re-apply via observer.
+                // Simplest correct approach: delete + recreate so TransactionObserver stays the single source of truth.
+                $transaction->delete();
+            }
 
-        auth()->user()->transactions()->create([
-            ...$validated,
-            'category_id' => $validated['category_id'] ?: null,
-            'to_account_id' => $validated['to_account_id'] ?: null,
-        ]);
+            auth()->user()->transactions()->create([
+                ...$validated,
+                'category_id' => $validated['category_id'] ?: null,
+                'to_account_id' => $validated['to_account_id'] ?: null,
+            ]);
+        });
 
         $this->showModal = false;
         $this->dispatch('transaction-saved');
