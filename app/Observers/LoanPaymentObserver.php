@@ -27,15 +27,18 @@ class LoanPaymentObserver
 
     public function deleted(LoanPayment $loanPayment): void
     {
-        if (! $loanPayment->account_id) {
-            return;
+        $loan = $loanPayment->loan;
+        $loan->increment('remaining', $loanPayment->amount);
+
+        if ($loan->fresh()?->status === 'settled' && $loan->fresh()?->remaining > 0) {
+            $loan->update(['status' => 'active']);
         }
 
-        $loan = $loanPayment->loan;
-
-        match ($loan->direction) {
-            'borrowed' => $loanPayment->account->increment('balance', $loanPayment->amount),
-            'lent' => $loanPayment->account->decrement('balance', $loanPayment->amount),
-        };
+        if ($loanPayment->account_id) {
+            match ($loan->direction) {
+                'borrowed' => $loanPayment->account->increment('balance', $loanPayment->amount),
+                'lent' => $loanPayment->account->decrement('balance', $loanPayment->amount),
+            };
+        }
     }
 }

@@ -19,9 +19,7 @@ class DemoSeeder extends Seeder
             ]
         );
 
-        // UserObserver created Cash + default categories on first create.
-        // Skip if already seeded (idempotent).
-        if ($user->accounts()->count() > 1) {
+        if (! $user->wasRecentlyCreated) {
             $this->command->info('Demo data already exists, skipping.');
 
             return;

@@ -16,6 +16,6 @@ class DemoResetCommand extends Command
     {
         User::where('email', 'demo@example.com')->first()?->delete();
 
-        $this->call(DemoSeeder::class);
+        $this->call('db:seed', ['--class' => DemoSeeder::class, '--force' => true]);
     }
 }

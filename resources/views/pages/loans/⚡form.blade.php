@@ -5,6 +5,7 @@ use App\Models\LoanDateExtension;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -142,7 +143,7 @@ new class extends Component {
             'payment_amount' => ['required', 'numeric', 'min:0.01', 'max:'.$loan->remaining],
             'payment_note' => ['nullable', 'string', 'max:255'],
             'payment_paid_at' => ['required', 'date'],
-            'payment_account_id' => ['nullable', 'exists:accounts,id'],
+            'payment_account_id' => ['nullable', Rule::exists('accounts', 'id')->where('user_id', auth()->id())],
         ]);
 
         if ($validated['payment_account_id']) {
