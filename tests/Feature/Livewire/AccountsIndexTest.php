@@ -6,10 +6,9 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Livewire\Livewire;
 
-test('deleting an account cascades to its transactions', function () {
+test('an account without transactions can be deleted', function () {
     $user = User::factory()->create();
     $account = Account::factory()->for($user)->create(['name' => 'Meezan Bank']);
-    $transaction = Transaction::factory()->for($user)->for($account)->create();
 
     Livewire::actingAs($user)
         ->test('pages::accounts.index')
@@ -19,7 +18,40 @@ test('deleting an account cascades to its transactions', function () {
         ->assertSet('confirmingDelete', false);
 
     expect(Account::find($account->id))->toBeNull();
-    expect(Transaction::find($transaction->id))->toBeNull();
+});
+
+test('an account with transactions cannot be deleted', function () {
+    $user = User::factory()->create();
+    $account = Account::factory()->for($user)->create(['name' => 'Meezan Bank']);
+    $transaction = Transaction::factory()->for($user)->for($account)->create();
+
+    Livewire::actingAs($user)
+        ->test('pages::accounts.index')
+        ->call('confirmDelete', $account->id)
+        ->call('delete')
+        ->assertSet('confirmingDelete', false);
+
+    expect(Account::find($account->id))->not->toBeNull();
+    expect(Transaction::find($transaction->id))->not->toBeNull();
+});
+
+test('an account that is a transfer destination cannot be deleted', function () {
+    $user = User::factory()->create();
+    $source = Account::factory()->for($user)->create();
+    $destination = Account::factory()->for($user)->create();
+
+    Transaction::factory()->for($user)->for($source)->create([
+        'type' => 'transfer',
+        'to_account_id' => $destination->id,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test('pages::accounts.index')
+        ->call('confirmDelete', $destination->id)
+        ->call('delete')
+        ->assertSet('confirmingDelete', false);
+
+    expect(Account::find($destination->id))->not->toBeNull();
 });
 
 test('list paginates beyond the first page', function () {

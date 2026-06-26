@@ -37,4 +37,15 @@ class Account extends Model
     {
         return $this->hasMany(Transaction::class);
     }
+
+    /**
+     * Whether any transaction references this account as a source or transfer destination.
+     */
+    public function hasTransactions(): bool
+    {
+        return Transaction::query()
+            ->where('account_id', $this->id)
+            ->orWhere('to_account_id', $this->id)
+            ->exists();
+    }
 }

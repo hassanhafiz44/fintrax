@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Account;
+use Flux\Flux;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
@@ -46,6 +47,17 @@ new #[Title('Accounts')] class extends Component {
         $account = auth()->user()->accounts()->findOrFail($this->deletingId);
 
         $this->authorize('delete', $account);
+
+        if ($account->hasTransactions()) {
+            $this->confirmingDelete = false;
+
+            Flux::toast(
+                variant: 'danger',
+                text: __('This account has transactions. Delete or move them before removing the account.'),
+            );
+
+            return;
+        }
 
         $account->delete();
 
@@ -109,7 +121,7 @@ new #[Title('Accounts')] class extends Component {
     <flux:modal name="confirm-account-delete" wire:model.self="confirmingDelete" class="max-w-md">
         <div class="space-y-6">
             <flux:heading size="lg">{{ __('Delete account?') }}</flux:heading>
-            <flux:text>{{ __('This will also delete all of its transactions.') }}</flux:text>
+            <flux:text>{{ __('Accounts with transactions cannot be deleted. Remove or move their transactions first.') }}</flux:text>
             <div class="flex justify-end gap-2">
                 <flux:button variant="outline" wire:click="$set('confirmingDelete', false)">{{ __('Cancel') }}</flux:button>
                 <flux:button variant="danger" wire:click="delete">{{ __('Delete') }}</flux:button>
