@@ -5,7 +5,6 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - fintrax-db:/var/www/html/database
       - fintrax-storage:/var/www/html/storage
     restart: unless-stopped
 
@@ -16,7 +15,6 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - fintrax-db:/var/www/html/database
       - fintrax-storage:/var/www/html/storage
     depends_on:
       - app
@@ -31,5 +29,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  fintrax-db:
   fintrax-storage:

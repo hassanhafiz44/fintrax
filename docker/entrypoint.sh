@@ -7,10 +7,14 @@ mkdir -p storage/framework/cache storage/framework/sessions storage/framework/vi
     storage/app/public storage/logs bootstrap/cache
 chown -R www-data:www-data storage bootstrap/cache
 
-if [ ! -f database/database.sqlite ]; then
-    touch database/database.sqlite
+if [ "${DB_CONNECTION:-sqlite}" = "sqlite" ]; then
+    DB_PATH="${DB_DATABASE:-database/database.sqlite}"
+    mkdir -p "$(dirname "$DB_PATH")"
+    if [ ! -f "$DB_PATH" ]; then
+        touch "$DB_PATH"
+    fi
+    chown www-data:www-data "$(dirname "$DB_PATH")" "$DB_PATH"
 fi
-chown www-data:www-data database database/database.sqlite
 
 php artisan config:clear
 php artisan route:clear
