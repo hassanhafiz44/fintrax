@@ -39,6 +39,6 @@ class TransactionObserver
     private function reverseTransfer(Transaction $transaction): void
     {
         $transaction->account->increment('balance', $transaction->amount);
-        $transaction->toAccount->decrement('balance', $transaction->amount);
+        $transaction->toAccount?->decrement('balance', $transaction->amount);
     }
 }

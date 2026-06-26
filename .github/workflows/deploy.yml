@@ -119,6 +119,7 @@ jobs:
             sed -i "s#image: ghcr.io/.*-app:latest#image: ${APP_IMAGE}#" docker-compose.yml
             sed -i "s#image: ghcr.io/.*-web:latest#image: ${WEB_IMAGE}#" docker-compose.yml
             docker compose pull
+            docker compose run --rm app php artisan migrate --force
             docker compose up -d --remove-orphans
             docker image prune -f
             sudo cp deploy/fintrax.hassanpi.com.conf /etc/nginx/sites-available/fintrax.hassanpi.com.conf

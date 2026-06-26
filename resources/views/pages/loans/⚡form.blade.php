@@ -1,8 +1,12 @@
 <?php
 
+use App\Models\Account;
 use App\Models\LoanDateExtension;
 use Flux\Flux;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -33,11 +37,20 @@ new class extends Component {
 
     public string $payment_paid_at = '';
 
+    public ?int $payment_account_id = null;
+
     public string $current_due_date = '';
 
     public string $new_due_date = '';
 
     public string $extend_reason = '';
+
+    /** @return Collection<int, Account> */
+    #[Computed]
+    public function accounts(): Collection
+    {
+        return auth()->user()->accounts()->orderBy('name')->get();
+    }
 
     #[On('open-loan-form')]
     public function openLoanForm(?int $loanId = null): void
@@ -117,6 +130,7 @@ new class extends Component {
         $this->payment_amount = '';
         $this->payment_note = '';
         $this->payment_paid_at = now()->format('Y-m-d');
+        $this->payment_account_id = null;
         $this->showPaymentModal = true;
     }
 
@@ -129,12 +143,18 @@ new class extends Component {
             'payment_amount' => ['required', 'numeric', 'min:0.01', 'max:'.$loan->remaining],
             'payment_note' => ['nullable', 'string', 'max:255'],
             'payment_paid_at' => ['required', 'date'],
+            'payment_account_id' => ['nullable', Rule::exists('accounts', 'id')->where('user_id', auth()->id())],
         ]);
+
+        if ($validated['payment_account_id']) {
+            $this->authorize('update', auth()->user()->accounts()->findOrFail($validated['payment_account_id']));
+        }
 
         $loan->payments()->create([
             'amount' => $validated['payment_amount'],
             'note' => $validated['payment_note'],
             'paid_at' => $validated['payment_paid_at'],
+            'account_id' => $validated['payment_account_id'] ?: null,
         ]);
 
         $this->showPaymentModal = false;
@@ -221,6 +241,12 @@ new class extends Component {
 
             <flux:input wire:model="payment_amount" :label="__('Amount')" type="number" step="0.01" min="0" required />
             <flux:input wire:model="payment_paid_at" :label="__('Date')" type="date" required />
+            <flux:select wire:model="payment_account_id" :label="__('Account (optional)')">
+                <flux:select.option value="">{{ __('No account') }}</flux:select.option>
+                @foreach ($this->accounts as $account)
+                    <flux:select.option :value="$account->id">{{ $account->name }}</flux:select.option>
+                @endforeach
+            </flux:select>
             <flux:input wire:model="payment_note" :label="__('Note')" />
 
             <div class="flex justify-end gap-2">

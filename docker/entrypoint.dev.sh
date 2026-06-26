@@ -35,6 +35,8 @@ if mkdir "$LOCK" 2>/dev/null; then
 
     mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views \
         storage/app/public storage/logs bootstrap/cache database
+    touch storage/logs/laravel.log
+    chmod 666 storage/logs/laravel.log
 
     if [ ! -f database/database.sqlite ]; then
         touch database/database.sqlite
