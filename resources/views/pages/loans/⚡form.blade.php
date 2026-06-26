@@ -150,12 +150,14 @@ new class extends Component {
             $this->authorize('update', auth()->user()->accounts()->findOrFail($validated['payment_account_id']));
         }
 
-        $loan->payments()->create([
-            'amount' => $validated['payment_amount'],
-            'note' => $validated['payment_note'],
-            'paid_at' => $validated['payment_paid_at'],
-            'account_id' => $validated['payment_account_id'] ?: null,
-        ]);
+        DB::transaction(function () use ($loan, $validated): void {
+            $loan->payments()->create([
+                'amount' => $validated['payment_amount'],
+                'note' => $validated['payment_note'],
+                'paid_at' => $validated['payment_paid_at'],
+                'account_id' => $validated['payment_account_id'] ?: null,
+            ]);
+        });
 
         $this->showPaymentModal = false;
         $this->dispatch('loan-payment-saved');

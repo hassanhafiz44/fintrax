@@ -101,6 +101,39 @@ test('transfer requires a destination account different from the source account'
         ->assertHasErrors(['to_account_id']);
 });
 
+test('a failure while saving rolls back the balance (atomicity)', function () {
+    $user = User::factory()->create();
+    $account = Account::factory()->for($user)->create(['balance' => 0]);
+
+    $transaction = Transaction::factory()->for($account)->create([
+        'user_id' => $user->id,
+        'type' => 'expense',
+        'amount' => 30,
+    ]);
+
+    expect((float) $account->refresh()->balance)->toBe(-30.0);
+
+    // Inject a failure on the recreate step: save() deletes (balance → 0), then create() throws.
+    // Without the DB::transaction wrapper the delete would persist and the balance would stick at 0 (drift).
+    // The closure binds to this test's event dispatcher, which the next test replaces — so it cannot leak.
+    Transaction::creating(function (): void {
+        throw new RuntimeException('simulated failure mid-save');
+    });
+
+    expect(function () use ($user, $transaction) {
+        Livewire::actingAs($user)
+            ->test('pages::transactions.form')
+            ->call('open', $transaction->id)
+            ->set('amount', '10')
+            ->call('save');
+    })->toThrow(RuntimeException::class);
+
+    // All-or-nothing: the delete was rolled back, the original row is intact, balance unchanged.
+    expect(Transaction::count())->toBe(1);
+    expect((float) $transaction->refresh()->amount)->toBe(30.0);
+    expect((float) $account->refresh()->balance)->toBe(-30.0);
+});
+
 test('amount is required and must be numeric', function () {
     $user = User::factory()->create();
     $account = Account::factory()->for($user)->create();

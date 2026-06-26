@@ -85,6 +85,47 @@ test('budget computes spent and progress percent from expense transactions', fun
     expect($budget->progress_percent)->toBe(25);
 });
 
+test('budget with null category sums all expense categories', function () {
+    $user = User::factory()->create();
+    $food = Category::factory()->for($user)->create(['type' => 'expense']);
+    $transport = Category::factory()->for($user)->create(['type' => 'expense']);
+    $account = Account::factory()->for($user)->create();
+
+    $budget = Budget::factory()->for($user)->create([
+        'category_id' => null,
+        'amount' => 1000,
+        'start_date' => now()->startOfMonth(),
+        'end_date' => null,
+    ]);
+
+    Transaction::factory()->for($account)->create([
+        'user_id' => $user->id,
+        'category_id' => $food->id,
+        'type' => 'expense',
+        'amount' => 300,
+        'transacted_at' => now(),
+    ]);
+
+    Transaction::factory()->for($account)->create([
+        'user_id' => $user->id,
+        'category_id' => $transport->id,
+        'type' => 'expense',
+        'amount' => 200,
+        'transacted_at' => now(),
+    ]);
+
+    Transaction::factory()->for($account)->create([
+        'user_id' => $user->id,
+        'category_id' => $food->id,
+        'type' => 'income',
+        'amount' => 999,
+        'transacted_at' => now(),
+    ]);
+
+    expect((float) $budget->spent)->toBe(500.0);
+    expect($budget->progress_percent)->toBe(50);
+});
+
 test('user observer seeds default account and categories on registration', function () {
     $user = User::factory()->create();
 

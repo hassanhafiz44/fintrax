@@ -46,7 +46,10 @@ class Budget extends Model
     {
         return Attribute::get(fn (): float => (float) Transaction::query()
             ->where('user_id', $this->user_id)
-            ->where('category_id', $this->category_id)
+            ->when(
+                $this->category_id !== null,
+                fn ($query) => $query->where('category_id', $this->category_id),
+            )
             ->where('type', 'expense')
             ->whereBetween('transacted_at', [
                 $this->start_date,
