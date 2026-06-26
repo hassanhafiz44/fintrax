@@ -148,9 +148,11 @@ docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compo
 
 ## Database
 
-Default is **SQLite** — zero setup, file lives in a named volume
-(`fintrax-db` in prod, bind-mounted `database/` in dev) and just works for
-single-instance deployments.
+Default is **SQLite** — zero setup, bind-mounted `database/` in dev. `docker-compose.prod.yml`
+no longer mounts a volume over `database/`; if you run SQLite in prod, set
+`DB_DATABASE` to a path under the `fintrax-storage` volume (e.g.
+`storage/app/database.sqlite`) so the sqlite file persists without shadowing
+the seeders/migrations baked into the image.
 
 **MySQL is optional and not bundled** in either compose file — there's no
 `mysql`/`db` service in `docker-compose.yml` or `docker-compose.prod.yml`. If
