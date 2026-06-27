@@ -12,77 +12,8 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    outputs:
-      app_digest: ${{ steps.build_app.outputs.digest }}
-      web_digest: ${{ steps.build_web.outputs.digest }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-        with:
-          persist-credentials: false
-
-      - name: Log in to GHCR
-        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@c47758b77c9736f4b2ef4073d4d51994fabfe349 # v3
-
-      - name: Extract metadata (app image)
-        id: meta_app
-        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-app
-          tags: |
-            type=raw,value=latest
-            type=sha,format=short
-
-      - name: Build and push app image
-        id: build_app
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
-        with:
-          context: .
-          target: app
-          push: true
-          tags: ${{ steps.meta_app.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Extract metadata (web image)
-        id: meta_web
-        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-web
-          tags: |
-            type=raw,value=latest
-            type=sha,format=short
-
-      - name: Build and push web image
-        id: build_web
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
-        with:
-          context: .
-          target: web
-          push: true
-          tags: ${{ steps.meta_web.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
   deploy:
-    needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -90,40 +21,111 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Copy compose file and nginx config to server
+      - name: Setup PHP
+        uses: shivammathur/setup-php@7c071dfe9dc99bdf297fa79cb49ea005b9fcadbc # v2
+        with:
+          php-version: "8.5"
+          extensions: mbstring, bcmath, pcntl, zip, sqlite3, pdo_mysql, intl, curl, xml
+          tools: composer:v2
+          coverage: none
+
+      - name: Install PHP dependencies
+        run: composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-progress
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "24"
+
+      - name: Build assets
+        run: |
+          npm ci
+          npm run build
+
+      - name: Pack release artifact
+        run: |
+          tar czf /tmp/fintrax-release.tar.gz \
+            --exclude='./.git' \
+            --exclude='./.github' \
+            --exclude='./node_modules' \
+            --exclude='./tests' \
+            --exclude='./storage' \
+            --exclude='./.env' \
+            --exclude='*.sqlite' \
+            --exclude='./.phpunit.cache' \
+            --exclude='./.idea' \
+            --exclude='./.vscode' \
+            -C "$GITHUB_WORKSPACE" .
+
+      - name: Copy artifact to server
         uses: appleboy/scp-action@917f8b81dfc1ccd331fef9e2d61bdc6c8be94634 # v0.1.7
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           port: 11222
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: "docker-compose.prod.yml,deploy/fintrax.hassanpi.com.conf"
-          target: "/opt/fintrax"
-          strip_components: 0
+          fingerprint: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
+          source: "/tmp/fintrax-release.tar.gz"
+          target: "/opt/fintrax/_incoming"
+          strip_components: 1
 
-      - name: Deploy via SSH
+      - name: Activate release via SSH
         uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         env:
-          APP_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-app@${{ needs.build.outputs.app_digest }}
-          WEB_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-web@${{ needs.build.outputs.web_digest }}
+          GIT_SHA: ${{ github.sha }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           port: 11222
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: APP_IMAGE,WEB_IMAGE
+          fingerprint: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
+          envs: GIT_SHA
           script: |
-            set -e
-            cd /opt/fintrax
-            mv docker-compose.prod.yml docker-compose.yml
-            sed -i "s#image: ghcr.io/.*-app:latest#image: ${APP_IMAGE}#" docker-compose.yml
-            sed -i "s#image: ghcr.io/.*-web:latest#image: ${WEB_IMAGE}#" docker-compose.yml
-            docker compose pull
-            docker compose run --rm app php artisan migrate --force
-            docker compose up -d --remove-orphans
-            docker image prune -f
-            sudo cp deploy/fintrax.hassanpi.com.conf /etc/nginx/sites-available/fintrax.hassanpi.com.conf
+            set -euo pipefail
+            BASE=/opt/fintrax
+            # Unique per run so re-deploying the live commit never touches the
+            # directory `current` points at.
+            REL="$BASE/releases/$(date +%Y%m%d%H%M%S)-$(echo "$GIT_SHA" | cut -c1-12)"
+            PREV="$(readlink "$BASE/current" 2>/dev/null || true)"
+
+            # 1. Unpack the new release
+            mkdir -p "$REL"
+            tar xzf "$BASE/_incoming/fintrax-release.tar.gz" -C "$REL"
+            rm -f "$BASE/_incoming/fintrax-release.tar.gz"
+
+            # 2. Wire shared state into the release
+            ln -sfn "$BASE/shared/.env" "$REL/.env"
+            rm -rf "$REL/storage" && ln -sfn "$BASE/shared/storage" "$REL/storage"
+            # SQLite deployments only: link the persistent db file. MySQL/Postgres
+            # deployments skip this (DB lives in shared/.env config).
+            if [ -f "$BASE/shared/database/database.sqlite" ]; then
+              rm -f "$REL/database/database.sqlite"
+              ln -sfn "$BASE/shared/database/database.sqlite" "$REL/database/database.sqlite"
+            fi
+
+            # 3. Build steps (formerly docker/entrypoint.sh)
+            cd "$REL"
+            php8.5 artisan migrate --force --graceful
+            php8.5 artisan db:seed --class=DemoSeeder --force
+            php8.5 artisan config:cache
+            php8.5 artisan route:cache
+            php8.5 artisan view:cache
+            [ -L "$REL/public/storage" ] || php8.5 artisan storage:link
+
+            # 4. Stage + validate the nginx site BEFORE flipping (abort if bad)
+            sudo cp "$REL/deploy/fintrax.hassanpi.com.conf" /etc/nginx/sites-available/fintrax.hassanpi.com.conf
             sudo ln -sf /etc/nginx/sites-available/fintrax.hassanpi.com.conf /etc/nginx/sites-enabled/fintrax.hassanpi.com.conf
             sudo nginx -t
+
+            # 5. Flip + reload. Roll the symlink back to the previous release if
+            # any post-flip step fails, so a broken deploy never stays live.
+            rollback() { [ -n "$PREV" ] && ln -sfn "$PREV" "$BASE/current" || true; }
+            trap 'rollback' ERR
+            ln -sfn "$REL" "$BASE/current"
+            sudo systemctl reload php8.5-fpm   # opcache validate_timestamps=0 => reload mandatory
+            sudo systemctl restart fintrax-queue
             sudo systemctl reload nginx
-            rm -rf deploy
+            trap - ERR
+
+            # 6. Prune: keep the 3 most recent releases
+            cd "$BASE/releases" && ls -1dt */ | tail -n +4 | xargs -r rm -rf

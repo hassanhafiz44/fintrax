@@ -1,75 +1,8 @@
 # syntax=docker/dockerfile:1
 
-#######################################
-# Stage: vendor — install PHP deps
-#######################################
-FROM composer:2 AS vendor
-WORKDIR /app
-COPY composer.json composer.lock ./
-RUN composer install \
-    --no-dev \
-    --no-scripts \
-    --no-interaction \
-    --prefer-dist \
-    --optimize-autoloader \
-    --ignore-platform-reqs
-COPY . .
-RUN composer dump-autoload --classmap-authoritative --no-dev --no-scripts
-
-#######################################
-# Stage: assets — build frontend (Vite)
-#######################################
-FROM node:24-alpine AS assets
-WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci
-COPY . .
-COPY --from=vendor /app/vendor ./vendor
-RUN npm run build
-
-#######################################
-# Stage: app — final PHP-FPM runtime
-#######################################
-FROM php:8.5-fpm-alpine AS app
-
-RUN apk add --no-cache \
-        sqlite-libs \
-        oniguruma \
-        libzip \
-        tini \
-    && apk add --no-cache --virtual .build-deps \
-        sqlite-dev \
-        oniguruma-dev \
-        libzip-dev \
-        $PHPIZE_DEPS \
-    && docker-php-ext-install pdo_sqlite pdo_mysql bcmath pcntl zip \
-    && apk del .build-deps
-
-WORKDIR /var/www/html
-
-COPY . .
-COPY --from=vendor /app/vendor ./vendor
-COPY --from=assets /app/public/build ./public/build
-
-COPY docker/php.ini /usr/local/etc/php/conf.d/zz-fintrax.ini
-COPY docker/www.conf /usr/local/etc/php-fpm.d/zz-fintrax.conf
-COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
-
-RUN mkdir -p database \
-    && touch database/database.sqlite \
-    && chown -R www-data:www-data storage bootstrap/cache database
-
-ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/entrypoint.sh"]
-CMD ["php-fpm"]
-
-#######################################
-# Stage: web — nginx serving public/
-#######################################
-FROM nginx:alpine AS web
-
-COPY --from=app /var/www/html/public /var/www/html/public
-COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+# This Dockerfile is for LOCAL DEVELOPMENT ONLY (docker-compose.yml + Pest
+# browser tests). Production no longer uses Docker — it deploys a CI-built
+# artifact onto bare-metal PHP-FPM + nginx. See deploy/ for the production setup.
 
 #######################################
 # Stage: dev — hot-reload local dev image

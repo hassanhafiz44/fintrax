@@ -111,53 +111,62 @@ See `CLAUDE.md` for full architecture notes and build conventions.
 
 ## Production Deployment
 
-Production runs from prebuilt images (`docker-compose.prod.yml`), not the
-source tree — no bind mount, no Composer/npm install at runtime.
+**Production no longer uses Docker.** It runs on bare-metal PHP-FPM + nginx and
+deploys a CI-built artifact into atomic release directories. (Docker is still
+used for *local development* via `docker-compose.yml`.)
 
-```bash
-cp .env.example .env
-# edit .env: APP_ENV=production, APP_DEBUG=false, APP_URL=https://your-domain,
-# APP_KEY=$(php artisan key:generate --show), DB_* if using MySQL (see below)
+Server layout under `/opt/fintrax`:
 
-docker compose -f docker-compose.prod.yml pull
-docker compose -f docker-compose.prod.yml up -d
-docker compose -f docker-compose.prod.yml exec app php artisan migrate --force
+```text
+releases/<git-sha>/   full app (code + vendor + public/build), one per deploy
+shared/.env           production env, symlinked into each release
+shared/storage/       logs/sessions/cache/uploads, persists across releases
+shared/database/      SQLite db, persists across releases
+current -> releases/<git-sha>   atomic symlink, flipped last
 ```
 
-This starts two services:
-
-- **`app`** — PHP-FPM runtime (`ghcr.io/hassanhafiz44/fintrax-app`), reads
-  `.env`, persists `database/` and `storage/` in named volumes.
-- **`web`** — nginx (`ghcr.io/hassanhafiz44/fintrax-web`), serves built
-  assets and proxies PHP to `app`, exposed on `127.0.0.1:8088`. Put your own
-  reverse proxy (nginx/Caddy + TLS) in front of that port.
-
-Images are built and published from the `Dockerfile`'s `app`/`web` stages —
-`docker compose -f docker-compose.prod.yml build` works too if you'd rather
-build locally instead of pulling from GHCR.
-
-Useful commands:
+**One-time provisioning** (installs PHP 8.5, the FPM pool, the queue systemd
+unit, the scheduler cron, and a scoped sudoers rule):
 
 ```bash
-docker compose -f docker-compose.prod.yml exec app php artisan tinker
-docker compose -f docker-compose.prod.yml logs -f app
-docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d   # deploy new image
+sudo DEPLOY_USER=<ssh-deploy-user> bash deploy/provision.sh
+# then edit /opt/fintrax/shared/.env (set APP_KEY, APP_URL, DB_DATABASE)
+```
+
+Provisioning inputs live in `deploy/`:
+
+- `provision.sh` — idempotent one-time setup script.
+- `php-fpm/fintrax.conf`, `php-fpm/zz-fintrax.ini` — PHP-FPM pool + opcache/limits.
+- `fintrax-queue.service` — systemd unit for `queue:work`.
+- `fintrax.hassanpi.com.conf` — host nginx site (serves `current/public` via the
+  `/run/php/fintrax.sock` FPM socket; TLS via Certbot).
+- `.env.production.example` — template for `shared/.env`.
+
+**Deploys** are automatic on push to `main` (`.github/workflows/deploy.yml`):
+GitHub Actions builds the artifact (`composer install --no-dev` + `npm run build`),
+ships it over SSH, then runs `migrate` + `DemoSeeder` + `config/route/view:cache`
+in the new release, flips the `current` symlink, and reloads php-fpm / restarts
+the queue / reloads nginx. The scheduler (`demo:reset` daily) runs via the
+www-data cron installed by `provision.sh`.
+
+**Rollback** — point `current` at a previous release and reload:
+
+```bash
+ln -sfn /opt/fintrax/releases/<old-sha> /opt/fintrax/current
+sudo systemctl reload php8.5-fpm && sudo systemctl restart fintrax-queue && sudo systemctl reload nginx
 ```
 
 ---
 
 ## Database
 
-Default is **SQLite** — zero setup, bind-mounted `database/` in dev. `docker-compose.prod.yml`
-no longer mounts a volume over `database/`; if you run SQLite in prod, set
-`DB_DATABASE` to a path under the `fintrax-storage` volume (e.g.
-`storage/app/database.sqlite`) so the sqlite file persists without shadowing
-the seeders/migrations baked into the image.
+Default is **SQLite** — zero setup, bind-mounted `database/` in dev. In
+production the SQLite file lives at `/opt/fintrax/shared/database/database.sqlite`
+(`DB_DATABASE` in `shared/.env`) so it persists across releases; each release
+symlinks `database/database.sqlite` to it.
 
-**MySQL is optional and not bundled** in either compose file — there's no
-`mysql`/`db` service in `docker-compose.yml` or `docker-compose.prod.yml`. If
-you want MySQL, run it as its own separate container or managed instance,
-then point `.env` at it:
+**MySQL is optional and not bundled.** If you want MySQL, run it as its own
+service or managed instance, then point `shared/.env` at it:
 
 ```env
 DB_CONNECTION=mysql
@@ -167,9 +176,3 @@ DB_DATABASE=fintrax
 DB_USERNAME=fintrax
 DB_PASSWORD=<password>
 ```
-
-For dev, add a `mysql` service to your own `docker-compose.override.yml` and
-point `DB_HOST` at it. For prod, run MySQL on its own host/container (managed
-DB or a separate compose file) rather than folding it into
-`docker-compose.prod.yml` — keeps the app stack disposable and the
-database's lifecycle independent of app deploys.
