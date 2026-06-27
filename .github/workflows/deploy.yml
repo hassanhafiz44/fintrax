@@ -64,6 +64,7 @@ jobs:
           port: 11222
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
+          fingerprint: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
           source: "/tmp/fintrax-release.tar.gz"
           target: "/opt/fintrax/_incoming"
           strip_components: 1
@@ -77,14 +78,17 @@ jobs:
           port: 11222
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
+          fingerprint: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
           envs: GIT_SHA
           script: |
             set -euo pipefail
             BASE=/opt/fintrax
-            REL="$BASE/releases/$GIT_SHA"
+            # Unique per run so re-deploying the live commit never touches the
+            # directory `current` points at.
+            REL="$BASE/releases/$(date +%Y%m%d%H%M%S)-$(echo "$GIT_SHA" | cut -c1-12)"
+            PREV="$(readlink "$BASE/current" 2>/dev/null || true)"
 
             # 1. Unpack the new release
-            rm -rf "$REL"
             mkdir -p "$REL"
             tar xzf "$BASE/_incoming/fintrax-release.tar.gz" -C "$REL"
             rm -f "$BASE/_incoming/fintrax-release.tar.gz"
@@ -101,23 +105,27 @@ jobs:
 
             # 3. Build steps (formerly docker/entrypoint.sh)
             cd "$REL"
-            php artisan migrate --force --graceful
-            php artisan db:seed --class=DemoSeeder --force
-            php artisan config:cache
-            php artisan route:cache
-            php artisan view:cache
-            [ -L "$REL/public/storage" ] || php artisan storage:link
+            php8.5 artisan migrate --force --graceful
+            php8.5 artisan db:seed --class=DemoSeeder --force
+            php8.5 artisan config:cache
+            php8.5 artisan route:cache
+            php8.5 artisan view:cache
+            [ -L "$REL/public/storage" ] || php8.5 artisan storage:link
 
-            # 4. Atomic flip
-            ln -sfn "$REL" "$BASE/current"
-
-            # 5. Reload services (opcache validate_timestamps=0 => fpm reload is mandatory)
-            sudo systemctl reload php8.5-fpm
-            sudo systemctl restart fintrax-queue
+            # 4. Stage + validate the nginx site BEFORE flipping (abort if bad)
             sudo cp "$REL/deploy/fintrax.hassanpi.com.conf" /etc/nginx/sites-available/fintrax.hassanpi.com.conf
             sudo ln -sf /etc/nginx/sites-available/fintrax.hassanpi.com.conf /etc/nginx/sites-enabled/fintrax.hassanpi.com.conf
             sudo nginx -t
+
+            # 5. Flip + reload. Roll the symlink back to the previous release if
+            # any post-flip step fails, so a broken deploy never stays live.
+            rollback() { [ -n "$PREV" ] && ln -sfn "$PREV" "$BASE/current" || true; }
+            trap 'rollback' ERR
+            ln -sfn "$REL" "$BASE/current"
+            sudo systemctl reload php8.5-fpm   # opcache validate_timestamps=0 => reload mandatory
+            sudo systemctl restart fintrax-queue
             sudo systemctl reload nginx
+            trap - ERR
 
             # 6. Prune: keep the 3 most recent releases
             cd "$BASE/releases" && ls -1dt */ | tail -n +4 | xargs -r rm -rf

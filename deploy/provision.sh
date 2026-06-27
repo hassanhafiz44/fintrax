@@ -66,7 +66,7 @@ systemctl daemon-reload
 systemctl enable fintrax-queue   # started after the first successful deploy
 
 echo "==> Installing scheduler cron for www-data"
-CRON='* * * * * cd /opt/fintrax/current && /usr/bin/php artisan schedule:run >> /dev/null 2>&1'
+CRON='* * * * * cd /opt/fintrax/current && /usr/bin/php8.5 artisan schedule:run >> /dev/null 2>&1'
 ( crontab -u www-data -l 2>/dev/null | grep -vF 'artisan schedule:run'; echo "$CRON" ) | crontab -u www-data -
 
 echo "==> Installing sudoers rule for deploy user (${DEPLOY_USER})"

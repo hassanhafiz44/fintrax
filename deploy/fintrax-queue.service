@@ -12,7 +12,7 @@ Group=www-data
 Restart=always
 RestartSec=5
 WorkingDirectory=/opt/fintrax/current
-ExecStart=/usr/bin/php /opt/fintrax/current/artisan queue:work --sleep=3 --tries=3 --max-time=3600
+ExecStart=/usr/bin/php8.5 /opt/fintrax/current/artisan queue:work --sleep=3 --tries=3 --max-time=3600
 
 [Install]
 WantedBy=multi-user.target
