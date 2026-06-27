@@ -44,9 +44,11 @@ jobs:
 
       - name: Pack release artifact
         run: |
-          # Write into the workspace: scp-action runs in a container that only
-          # mounts $GITHUB_WORKSPACE, so a /tmp artifact would be invisible to it.
-          tar czf "$GITHUB_WORKSPACE/fintrax-release.tar.gz" \
+          # Write into the workspace (scp-action's container only mounts
+          # $GITHUB_WORKSPACE), but into an excluded subdir so tar isn't reading
+          # the archive dir while the tarball grows ("file changed as we read it").
+          mkdir -p "$GITHUB_WORKSPACE/_artifact"
+          tar czf "$GITHUB_WORKSPACE/_artifact/fintrax-release.tar.gz" \
             --exclude='./.git' \
             --exclude='./.github' \
             --exclude='./node_modules' \
@@ -57,7 +59,7 @@ jobs:
             --exclude='./.phpunit.cache' \
             --exclude='./.idea' \
             --exclude='./.vscode' \
-            --exclude='./fintrax-release.tar.gz' \
+            --exclude='./_artifact' \
             -C "$GITHUB_WORKSPACE" .
 
       - name: Copy artifact to server
@@ -68,9 +70,9 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           fingerprint: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
-          source: "fintrax-release.tar.gz"
+          source: "_artifact/fintrax-release.tar.gz"
           target: "/opt/fintrax/_incoming"
-          strip_components: 0
+          strip_components: 1
 
       - name: Activate release via SSH
         uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
