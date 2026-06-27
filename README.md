@@ -117,7 +117,7 @@ used for *local development* via `docker-compose.yml`.)
 
 Server layout under `/opt/fintrax`:
 
-```
+```text
 releases/<git-sha>/   full app (code + vendor + public/build), one per deploy
 shared/.env           production env, symlinked into each release
 shared/storage/       logs/sessions/cache/uploads, persists across releases

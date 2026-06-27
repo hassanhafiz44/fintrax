@@ -40,7 +40,7 @@ mkdir -p "$BASE/releases" "$BASE/_incoming" \
 
 echo "==> Seeding shared/.env (edit it before first deploy!)"
 if [ ! -f "$BASE/shared/.env" ]; then
-    cp "$HERE/.env.production.example" "$BASE/shared/.env"
+    install -m 640 "$HERE/.env.production.example" "$BASE/shared/.env"
     echo "    !! Set APP_KEY (php artisan key:generate --show) in $BASE/shared/.env"
     echo "    !! For MySQL/Postgres: set DB_* in $BASE/shared/.env (DB_HOST=127.0.0.1)"
 fi
@@ -50,15 +50,17 @@ fi
 if grep -q '^DB_CONNECTION=sqlite' "$BASE/shared/.env"; then
     mkdir -p "$BASE/shared/database"
     [ -f "$BASE/shared/database/database.sqlite" ] || touch "$BASE/shared/database/database.sqlite"
-    chmod 664 "$BASE/shared/database/database.sqlite"
+    chmod 660 "$BASE/shared/database/database.sqlite"
 fi
 
 # The deploy user owns the tree (rsync/artisan run as them) and is added to the
 # www-data group; shared/ is group-writable + setgid so files written by either
 # the deploy user (during deploy) or www-data (at runtime) stay group-accessible.
+# 2770 (not world-readable) keeps secrets in shared/ off-limits to other local users.
 usermod -aG www-data "$DEPLOY_USER" || true
 chown -R "$DEPLOY_USER":www-data "$BASE"
-find "$BASE/shared" -type d -exec chmod 2775 {} +
+find "$BASE/shared" -type d -exec chmod 2770 {} +
+chmod 640 "$BASE/shared/.env"
 
 echo "==> Installing queue worker systemd unit"
 install -m 644 "$HERE/fintrax-queue.service" /etc/systemd/system/fintrax-queue.service
