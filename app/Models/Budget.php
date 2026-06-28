@@ -53,7 +53,7 @@ class Budget extends Model
         }
 
         return match ($this->period) {
-            'weekly' => $this->start_date->copy()->addDays(6),
+            'weekly' => $this->start_date->copy()->addDays(6)->endOfDay(),
             default => $this->start_date->copy()->endOfMonth(), // monthly (and custom fallback)
         };
     }

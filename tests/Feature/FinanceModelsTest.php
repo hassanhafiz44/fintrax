@@ -176,13 +176,13 @@ test('weekly budget spent uses a seven day window', function () {
         'end_date' => null,
     ]);
 
-    // Day 7 (start + 6) — inside the window.
+    // Day 7 (start + 6), end of day — inside the window.
     Transaction::factory()->for($account)->create([
         'user_id' => $user->id,
         'category_id' => $category->id,
         'type' => 'expense',
         'amount' => 400,
-        'transacted_at' => $start->copy()->addDays(6),
+        'transacted_at' => $start->copy()->addDays(6)->endOfDay(),
     ]);
 
     // Day 8 — outside the window, excluded.

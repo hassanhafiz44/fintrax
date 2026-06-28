@@ -67,5 +67,10 @@ test('custom period saves with a valid end date', function () {
         ->assertHasNoErrors()
         ->assertDispatched('budget-saved');
 
-    expect(Budget::where('name', 'Custom budget')->exists())->toBeTrue();
+    expect(Budget::query()
+        ->where('name', 'Custom budget')
+        ->where('period', 'custom')
+        ->whereDate('start_date', '2026-06-01')
+        ->whereDate('end_date', '2026-06-15')
+        ->exists())->toBeTrue();
 });
