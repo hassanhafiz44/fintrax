@@ -19,7 +19,7 @@ On the registration page you provide:
 |-------|----------|-------|
 | Name | Yes | up to 255 characters |
 | Email | Yes | valid, unique email |
-| Password | Yes | at least 8 characters, with an uppercase letter, a lowercase letter, a number, and a special character |
+| Password | Yes | at least 12 characters, with an uppercase letter, a lowercase letter, a number, and a special character, and it must not appear in known data breaches |
 | Confirm password | Yes | must match the password |
 
 ### Verify your email
