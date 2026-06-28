@@ -1,5 +1,9 @@
 # Loan Date Extension — Design
 
+> **Status: shipped.** This was implemented and merged. The data model and goals
+> below hold as designed. A few details diverged during build — they're marked
+> **As-built** inline, and summarized in [As-built summary](#as-built-summary).
+
 ## Problem
 
 Loans have a single `due_date` with no record of when the loan was actually taken
@@ -32,7 +36,7 @@ $table->date('loaned_at')->nullable()->after('contact_name');
 Schema::create('loan_date_extensions', function (Blueprint $table) {
     $table->id();
     $table->foreignId('loan_id')->constrained()->cascadeOnDelete();
-    $table->date('previous_due_date');
+    $table->date('previous_due_date')->nullable(); // As-built: nullable — a loan with no due date can still be extended
     $table->date('new_due_date');
     $table->string('reason')->nullable();
     $table->timestamp('extended_at')->useCurrent();
@@ -99,19 +103,24 @@ and updates `loans.due_date` in one transaction.
 
 ## Extension Action
 
-Add a method, likely on the `Loan` model or a small action class
-(`app/Actions/Loans/ExtendLoanDueDate.php` — follow existing app conventions,
-check for an `Actions` directory pattern first), that:
+**As-built:** there is no action class or `Loan` model method — the logic lives
+inline in the `loans/form` SFC (`extendDueDate()` in
+`resources/views/pages/loans/⚡form.blade.php`). It:
 
-1. Validates `new_due_date` is after current `due_date`.
+1. Validates `new_due_date` is `required, date`, plus `after:<current due_date>`
+   **only when the loan already has a due date** (a loan with no due date can be
+   given its first one via the same flow).
 2. Wraps in `DB::transaction()`:
    - Creates `LoanDateExtension` row (`previous_due_date` = current `due_date`,
-     `new_due_date`, `reason`).
+     which may be null; `new_due_date`; `reason`).
    - Updates `loans.due_date = new_due_date`.
-3. Only callable when `loan.status === 'active'`.
+3. Only callable when `loan.status === 'active'` — enforced by
+   `abort_if($loan->status !== 'active', 403)` in both `openExtendForm()` and
+   `extendDueDate()`.
 
-Authorization: reuse existing `LoanPolicy` (`update` ability) since this
-mutates the loan.
+Authorization: reuses `LoanPolicy` `update` (`$this->authorize('update', $loan)`).
+On success it dispatches `loan-saved` (the same event the loan list already
+listens to) — no separate `loan-extended` event.
 
 ## UI
 
@@ -119,13 +128,13 @@ mutates the loan.
 
 - Each **active** loan row gets an "Extend" button/icon (hidden for `settled`
   loans).
-- Clicking opens a small modal (new Livewire component,
-  `pages::loans.extend-due-date` or similar, mirroring `loans/form` style):
-  - Current due date (read-only display)
-  - New due date (`flux:input type="date"`, required, must be after current)
-  - Reason (`flux:textarea` or `flux:input`, optional, max 255)
-  - Submit → calls extension action, dispatches `loan-extended` (or reuses
-    `loan-saved`) event, closes modal.
+- Clicking opens a modal. **As-built:** no new component — it's a third modal
+  (`loan-extend-modal`, opened via the `open-loan-extend-form` event) inside the
+  existing `loans/form` SFC, alongside the loan and payment modals:
+  - Current due date — read-only `flux:input`, shows "No due date set" when absent
+  - New due date (`flux:input type="date"`, required, after current when one exists)
+  - Reason (`flux:input`, optional, max 255 — plain input, not a textarea)
+  - Submit → runs `extendDueDate()`, dispatches `loan-saved`, closes modal.
 - Loan row expands (or shows below contact/amount) a compact extension history
   list, e.g.:
   ```
@@ -161,3 +170,25 @@ mutates the loan.
 - Editing/deleting past extension history rows.
 - Notifications to the other party about extension.
 - Multi-currency or amount changes during extension (due-date only).
+
+## As-built summary
+
+How the shipped code differs from the original design:
+
+| Area | Design | Shipped |
+|------|--------|---------|
+| `previous_due_date` column | `date` (not null) | `date` **nullable** — loans with no due date can still be extended |
+| Extension logic | Action class / `Loan` method | Inline `extendDueDate()` in the `loans/form` SFC |
+| Extend UI | New `pages::loans.extend-due-date` component | Third modal inside existing `loans/form` (`open-loan-extend-form` event) |
+| Reason field | `flux:textarea` or `flux:input` | `flux:input` |
+| Event on success | `loan-extended` or `loan-saved` | `loan-saved` |
+| `new_due_date` `after:` rule | always | only when the loan already has a due date |
+| Active-only guard | step in action | `abort_if($loan->status !== 'active', 403)` on open + submit |
+
+Everything else (the `loaned_at` column + backfill, the `LoanDateExtension`
+model, `Loan::dateExtensions()` ordered newest-first, history display, and the
+core data model) shipped as designed.
+
+Source: `resources/views/pages/loans/⚡form.blade.php`, `app/Models/Loan.php`,
+`app/Models/LoanDateExtension.php`, and the `loan_date_extensions` /
+`loaned_at` migrations.
