@@ -19,7 +19,7 @@ On the registration page you provide:
 |-------|----------|-------|
 | Name | Yes | up to 255 characters |
 | Email | Yes | valid, unique email |
-| Password | Yes | at least 12 characters, with an uppercase letter, a lowercase letter, a number, and a special character, and it must not appear in known data breaches |
+| Password | Yes | at least 8 characters, with an uppercase letter, a lowercase letter, a number, and a special character, and it must not appear in known data breaches |
 | Confirm password | Yes | must match the password |
 
 ### Verify your email
@@ -193,9 +193,8 @@ on the built-in ones.
 - **Profile** (`Settings → Profile`) — change your **name** and **email**. Changing your
   email requires verifying the new address again. You can also **delete your account**
   (available once your email is verified).
-- **Security** (`Settings → Security`) — change your **password**, enable/disable
-  **two-factor authentication (2FA)** with an authenticator app and view/regenerate
-  **recovery codes**, and add or remove **passkeys**.
+- **Security** (`Settings → Security`) — change your **password** and add or remove
+  **passkeys** (for passwordless sign-in).
 - **Appearance** (`Settings → Appearance`) — choose **Light**, **Dark**, or **System**
   theme.
 
