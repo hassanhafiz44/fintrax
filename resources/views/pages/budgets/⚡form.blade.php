@@ -58,7 +58,7 @@ new class extends Component {
             'amount' => ['required', 'numeric', 'min:0.01'],
             'period' => ['required', 'in:monthly,weekly,custom'],
             'start_date' => ['required', 'date'],
-            'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
+            'end_date' => ['nullable', 'required_if:period,custom', 'date', 'after_or_equal:start_date'],
         ]);
 
         $payload = [

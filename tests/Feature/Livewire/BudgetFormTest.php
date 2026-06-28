@@ -36,3 +36,41 @@ test('end date must be after or equal to start date', function () {
         ->call('save')
         ->assertHasErrors(['end_date']);
 });
+
+test('custom period requires an end date', function () {
+    $user = User::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test('pages::budgets.form')
+        ->call('open')
+        ->set('name', 'Custom budget')
+        ->set('amount', '500')
+        ->set('period', 'custom')
+        ->set('start_date', '2026-06-01')
+        ->set('end_date', '')
+        ->call('save')
+        ->assertHasErrors(['end_date']);
+});
+
+test('custom period saves with a valid end date', function () {
+    $user = User::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test('pages::budgets.form')
+        ->call('open')
+        ->set('name', 'Custom budget')
+        ->set('amount', '500')
+        ->set('period', 'custom')
+        ->set('start_date', '2026-06-01')
+        ->set('end_date', '2026-06-15')
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertDispatched('budget-saved');
+
+    expect(Budget::query()
+        ->where('name', 'Custom budget')
+        ->where('period', 'custom')
+        ->whereDate('start_date', '2026-06-01')
+        ->whereDate('end_date', '2026-06-15')
+        ->exists())->toBeTrue();
+});
