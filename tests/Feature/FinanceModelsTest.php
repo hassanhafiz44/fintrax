@@ -126,6 +126,77 @@ test('budget with null category sums all expense categories', function () {
     expect($budget->progress_percent)->toBe(50);
 });
 
+test('monthly budget spent pins to its own month', function () {
+    $user = User::factory()->create();
+    $category = Category::factory()->for($user)->create(['type' => 'expense']);
+    $account = Account::factory()->for($user)->create();
+
+    $startMonth = now()->subMonths(2)->startOfMonth();
+
+    $budget = Budget::factory()->for($user)->create([
+        'category_id' => $category->id,
+        'period' => 'monthly',
+        'amount' => 1000,
+        'start_date' => $startMonth,
+        'end_date' => null,
+    ]);
+
+    Transaction::factory()->for($account)->create([
+        'user_id' => $user->id,
+        'category_id' => $category->id,
+        'type' => 'expense',
+        'amount' => 300,
+        'transacted_at' => $startMonth->copy()->addDays(5),
+    ]);
+
+    // Outside the budget's month — must be excluded.
+    Transaction::factory()->for($account)->create([
+        'user_id' => $user->id,
+        'category_id' => $category->id,
+        'type' => 'expense',
+        'amount' => 999,
+        'transacted_at' => now(),
+    ]);
+
+    expect((float) $budget->spent)->toBe(300.0);
+});
+
+test('weekly budget spent uses a seven day window', function () {
+    $user = User::factory()->create();
+    $category = Category::factory()->for($user)->create(['type' => 'expense']);
+    $account = Account::factory()->for($user)->create();
+
+    $start = now()->subMonth()->startOfMonth();
+
+    $budget = Budget::factory()->for($user)->create([
+        'category_id' => $category->id,
+        'period' => 'weekly',
+        'amount' => 1000,
+        'start_date' => $start,
+        'end_date' => null,
+    ]);
+
+    // Day 7 (start + 6) — inside the window.
+    Transaction::factory()->for($account)->create([
+        'user_id' => $user->id,
+        'category_id' => $category->id,
+        'type' => 'expense',
+        'amount' => 400,
+        'transacted_at' => $start->copy()->addDays(6),
+    ]);
+
+    // Day 8 — outside the window, excluded.
+    Transaction::factory()->for($account)->create([
+        'user_id' => $user->id,
+        'category_id' => $category->id,
+        'type' => 'expense',
+        'amount' => 999,
+        'transacted_at' => $start->copy()->addDays(7),
+    ]);
+
+    expect((float) $budget->spent)->toBe(400.0);
+});
+
 test('user observer seeds default account and categories on registration', function () {
     $user = User::factory()->create();
 

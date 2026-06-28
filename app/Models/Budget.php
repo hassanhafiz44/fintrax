@@ -2,12 +2,19 @@
 
 namespace App\Models;
 
+use Carbon\CarbonInterface;
 use Database\Factories\BudgetFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property string $period
+ * @property Carbon $start_date
+ * @property Carbon|null $end_date
+ */
 class Budget extends Model
 {
     /** @use HasFactory<BudgetFactory> */
@@ -39,6 +46,18 @@ class Budget extends Model
         return $this->belongsTo(Category::class);
     }
 
+    public function effectiveEndDate(): CarbonInterface
+    {
+        if ($this->end_date) {
+            return $this->end_date;
+        }
+
+        return match ($this->period) {
+            'weekly' => $this->start_date->copy()->addDays(6),
+            default => $this->start_date->copy()->endOfMonth(), // monthly (and custom fallback)
+        };
+    }
+
     /**
      * @return Attribute<float, never>
      */
@@ -53,7 +72,7 @@ class Budget extends Model
             ->where('type', 'expense')
             ->whereBetween('transacted_at', [
                 $this->start_date,
-                $this->end_date ?? now()->endOfMonth(),
+                $this->effectiveEndDate(),
             ])
             ->sum('amount'));
     }
