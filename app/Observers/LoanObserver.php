@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\Account;
 use App\Models\Loan;
+use Illuminate\Support\Facades\DB;
 
 class LoanObserver
 {
@@ -20,20 +21,24 @@ class LoanObserver
             return;
         }
 
-        // Reverse the original disbursement on the original account.
-        $originalAccountId = $loan->getOriginal('account_id');
+        // Reverse-then-reapply must commit atomically so a mid-sequence failure
+        // can never leave the balance half-adjusted (mirrors TransactionObserver).
+        DB::transaction(function () use ($loan): void {
+            // Reverse the original disbursement on the original account.
+            $originalAccountId = $loan->getOriginal('account_id');
 
-        if ($originalAccountId) {
-            Account::find((int) $originalAccountId)?->decrement('balance', $this->disbursementDelta(
-                (string) $loan->getOriginal('direction'),
-                (float) $loan->getOriginal('amount'),
-            ));
-        }
+            if ($originalAccountId) {
+                Account::find((int) $originalAccountId)?->decrement('balance', $this->disbursementDelta(
+                    (string) $loan->getOriginal('direction'),
+                    (float) $loan->getOriginal('amount'),
+                ));
+            }
 
-        // Apply the new disbursement on the current account.
-        if ($loan->account_id) {
-            Account::find((int) $loan->account_id)?->increment('balance', $this->disbursementDelta($loan->direction, (float) $loan->amount));
-        }
+            // Apply the new disbursement on the current account.
+            if ($loan->account_id) {
+                Account::find((int) $loan->account_id)?->increment('balance', $this->disbursementDelta($loan->direction, (float) $loan->amount));
+            }
+        });
     }
 
     public function deleted(Loan $loan): void
