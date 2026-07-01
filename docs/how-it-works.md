@@ -54,10 +54,19 @@ account balance.
 
 ---
 
-## Loan lifecycle — `LoanPaymentObserver`
+## Loan lifecycle — `LoanObserver` & `LoanPaymentObserver`
 
 A loan tracks `amount` (original) and `remaining` (still owed), with `direction` of
-`lent` or `borrowed`.
+`lent` or `borrowed`, and an optional `account_id` for the initial disbursement.
+
+**Disbursement at loan creation (`LoanObserver`):** if a loan is created with an
+`account_id`, that account's balance moves immediately — **lent** decreases it (money
+given out), **borrowed** increases it (money received). This is the **opposite sign** of a
+payment (below). `deleted` reverses it; `updated` reverses the original and re-applies the
+new whenever `account_id`, `direction`, or `amount` changes, so edits and deletes keep the
+balance correct. The movement is a direct balance adjustment — **no `Transaction` row is
+created**, so income/expense totals are untouched. Creation and repayments net correctly
+(lend 1000 from Cash → −1000; a 400 repayment into Cash → +400 → net −600).
 
 **Logging a payment (create):**
 1. Decrement the loan's `remaining` by the payment amount.

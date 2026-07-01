@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Observers\LoanObserver;
 use Database\Factories\LoanFactory;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,6 +17,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $due_date
  * @property string $remaining
  */
+#[ObservedBy(LoanObserver::class)]
 class Loan extends Model
 {
     /** @use HasFactory<LoanFactory> */
@@ -39,6 +42,12 @@ class Loan extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** @return BelongsTo<Account, $this> */
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class);
     }
 
     /** @return HasMany<LoanPayment, $this> */

@@ -31,6 +31,8 @@ new class extends Component {
 
     public string $note = '';
 
+    public ?int $account_id = null;
+
     public string $payment_amount = '';
 
     public string $payment_note = '';
@@ -68,6 +70,7 @@ new class extends Component {
             $this->loaned_at = $loan->loaned_at?->format('Y-m-d') ?? '';
             $this->due_date = $loan->due_date?->format('Y-m-d') ?? '';
             $this->note = (string) $loan->note;
+            $this->account_id = $loan->account_id;
         } else {
             $this->contact_name = '';
             $this->direction = 'lent';
@@ -75,6 +78,7 @@ new class extends Component {
             $this->loaned_at = now()->format('Y-m-d');
             $this->due_date = '';
             $this->note = '';
+            $this->account_id = null;
         }
 
         $this->showLoanModal = true;
@@ -89,7 +93,12 @@ new class extends Component {
             'loaned_at' => ['required', 'date', 'before_or_equal:today'],
             'due_date' => ['nullable', 'date'],
             'note' => ['nullable', 'string', 'max:255'],
+            'account_id' => ['nullable', Rule::exists('accounts', 'id')->where('user_id', auth()->id())],
         ]);
+
+        if ($validated['account_id']) {
+            $this->authorize('update', auth()->user()->accounts()->findOrFail($validated['account_id']));
+        }
 
         if ($this->loanId) {
             $loan = auth()->user()->loans()->findOrFail($this->loanId);
@@ -102,6 +111,7 @@ new class extends Component {
                 'loaned_at' => $validated['loaned_at'],
                 'due_date' => $validated['due_date'] ?: null,
                 'note' => $validated['note'],
+                'account_id' => $validated['account_id'] ?: null,
             ]);
 
             // Keep remaining in sync with a manually-edited amount, preserving payments already made.
@@ -111,6 +121,7 @@ new class extends Component {
             auth()->user()->loans()->create([
                 ...$validated,
                 'due_date' => $validated['due_date'] ?: null,
+                'account_id' => $validated['account_id'] ?: null,
                 'remaining' => $validated['amount'],
                 'status' => 'active',
             ]);
@@ -227,6 +238,20 @@ new class extends Component {
             <flux:input wire:model="loaned_at" :label="__('Date loaned')" type="date" required />
             <flux:input wire:model="due_date" :label="__('Due date')" type="date" />
             <flux:input wire:model="note" :label="__('Note')" />
+
+            <div>
+                <flux:select wire:model.live="account_id" :label="__('Account (optional)')">
+                    <flux:select.option value="">{{ __('No account') }}</flux:select.option>
+                    @foreach ($this->accounts as $account)
+                        <flux:select.option :value="$account->id">{{ $account->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+                @if ($account_id)
+                    <flux:text class="mt-1 text-xs">
+                        {{ $direction === 'lent' ? __('Deducted from this account now.') : __('Added to this account now.') }}
+                    </flux:text>
+                @endif
+            </div>
 
             <div class="flex justify-end gap-2">
                 <flux:modal.close>
