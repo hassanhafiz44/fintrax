@@ -131,14 +131,18 @@ When a `User` is created, the observer seeds a usable starting state:
 
 ## Authentication — Fortify
 
-Auth is handled by Laravel Fortify (configured in `config/fortify.php`):
+Auth is handled by Laravel Fortify. The enabled features (`config/fortify.php`
+`features` array) are:
 
 - **Registration** and **password reset**.
 - **Email verification** — required; users hit the `verified` middleware before reaching
   the app. Changing your email resets verification.
-- **Two-factor authentication** — TOTP via an authenticator app, with single-use
-  **recovery codes**.
 - **Passkeys** — WebAuthn sign-in and management.
+
+> **Two-factor authentication is not enabled.** `Features::twoFactorAuthentication()`
+> is absent from the `features` array, so no 2FA routes are registered and the security
+> page hides its 2FA block (`@if ($canManageTwoFactor)`). The 2FA views/actions exist in
+> the codebase but are dormant until the feature is added to the config.
 
 ---
 
