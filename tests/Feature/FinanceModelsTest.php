@@ -244,3 +244,39 @@ test('loan payment observer decrements remaining and auto-settles loan', functio
     expect((float) $loan->refresh()->remaining)->toBe(0.0);
     expect($loan->status)->toBe('settled');
 });
+
+test('loan observer disburses on create and reverses on delete', function () {
+    $account = Account::factory()->create(['balance' => 1000]);
+
+    $loan = Loan::factory()->for($account->user)->create([
+        'direction' => 'lent',
+        'amount' => 300,
+        'remaining' => 300,
+        'account_id' => $account->id,
+        'status' => 'active',
+    ]);
+    expect((float) $account->refresh()->balance)->toBe(700.0);
+
+    $loan->delete();
+    expect((float) $account->refresh()->balance)->toBe(1000.0);
+});
+
+test('lent loan disbursement and later repayment net correctly on the account', function () {
+    $account = Account::factory()->create(['balance' => 1000]);
+
+    // Lend 1000 out of the account → balance 0.
+    $loan = Loan::factory()->for($account->user)->create([
+        'direction' => 'lent',
+        'amount' => 1000,
+        'remaining' => 1000,
+        'account_id' => $account->id,
+        'status' => 'active',
+    ]);
+    expect((float) $account->refresh()->balance)->toBe(0.0);
+
+    // Receive a 400 repayment into the same account → balance 400.
+    LoanPayment::factory()->for($loan)->create(['amount' => 400, 'account_id' => $account->id]);
+
+    expect((float) $account->refresh()->balance)->toBe(400.0);
+    expect((float) $loan->refresh()->remaining)->toBe(600.0);
+});

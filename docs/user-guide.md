@@ -127,6 +127,10 @@ direction, the remaining amount out of the total, and a status badge — **Settl
 | Date loaned | required, today or earlier |
 | Due date | optional |
 | Note | optional |
+| Account | optional — if set, the money moves now: **lent** deducts the amount from that account, **borrowed** adds it. Leave as "No account" to record the debt only. |
+
+Editing or deleting a loan that used an account adjusts that balance back to match
+automatically, so you never fix balances by hand.
 
 **Log a payment** (on active loans) — fields:
 - **Amount** — required; cannot exceed the remaining balance.
